@@ -1,0 +1,139 @@
+/* Design tokens. Components only use these variables, so a theme is just a set of values. */
+:root {
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'Cascadia Mono', Consolas, 'Liberation Mono',
+    monospace;
+  --radius: 6px;
+  --radius-sm: 4px;
+
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-panel: #f7f8fa;
+  --bg-sidebar: #f3f4f7;
+  --bg-activity: #eceef3;
+  --bg-hover: #e8ebf1;
+  --bg-active: #dce6fb;
+  --bg-elevated: #ffffff;
+  --border: #dde0e7;
+  --border-strong: #c6cad4;
+  --text: #1f2328;
+  --text-muted: #5a6270;
+  --text-faint: #8b93a1;
+  --accent: #2563eb;
+  --accent-hover: #1d4fc4;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(37, 99, 235, 0.11);
+  --danger: #cf222e;
+  --danger-soft: rgba(207, 34, 46, 0.1);
+  --warn: #9a6700;
+  --warn-soft: rgba(212, 167, 44, 0.18);
+  --ok: #1a7f37;
+  --ok-soft: rgba(26, 127, 55, 0.12);
+  --shadow: 0 8px 28px rgba(15, 23, 42, 0.18), 0 1px 3px rgba(15, 23, 42, 0.12);
+
+  --editor-bg: #ffffff;
+  --editor-active-line: rgba(15, 23, 42, 0.04);
+  --selection: rgba(37, 99, 235, 0.22);
+  --selection-match: rgba(255, 190, 0, 0.3);
+  --el-highlight: rgba(37, 99, 235, 0.09);
+  --match-bg: rgba(255, 196, 0, 0.3);
+  --match-border: rgba(210, 150, 0, 0.7);
+  --match-selected-bg: rgba(255, 170, 0, 0.5);
+
+  --syn-tag: #0b6e3c;
+  --syn-attr: #9a4a00;
+  --syn-string: #0a3a8c;
+  --syn-comment: #6e7781;
+  --syn-punct: #8a919c;
+  --syn-meta: #8250df;
+  --syn-entity: #cf222e;
+
+  --diff-add-bg: rgba(46, 160, 67, 0.14);
+  --diff-add-strong: rgba(46, 160, 67, 0.34);
+  --diff-del-bg: rgba(248, 81, 73, 0.13);
+  --diff-del-strong: rgba(248, 81, 73, 0.32);
+
+  --c-word: #2b579a;
+  --c-excel: #1d7344;
+  --c-ppt: #c43e1c;
+  --c-visio: #3955a3;
+  --c-odf: #0e8a8a;
+  --c-zip: #6b7280;
+
+  --ic-xml: #3b82c4;
+  --ic-rels: #8a63d2;
+  --ic-image: #d46a1d;
+  --ic-text: #6b7280;
+  --ic-package: #b7791f;
+  --ic-binary: #7b8494;
+  --ic-folder: #c99a2e;
+  --ic-element: #5a8f6a;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1b1d22;
+  --bg-panel: #202329;
+  --bg-sidebar: #1f2227;
+  --bg-activity: #17191d;
+  --bg-hover: #2b2f37;
+  --bg-active: #28385c;
+  --bg-elevated: #262a31;
+  --border: #31353d;
+  --border-strong: #444a55;
+  --text: #d9dce2;
+  --text-muted: #9aa1ad;
+  --text-faint: #6c7380;
+  --accent: #5b8def;
+  --accent-hover: #7aa3f5;
+  --accent-fg: #0b1220;
+  --accent-soft: rgba(91, 141, 239, 0.16);
+  --danger: #ff7b72;
+  --danger-soft: rgba(255, 123, 114, 0.14);
+  --warn: #e3b341;
+  --warn-soft: rgba(227, 179, 65, 0.16);
+  --ok: #56d364;
+  --ok-soft: rgba(86, 211, 100, 0.14);
+  --shadow: 0 10px 32px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.5);
+
+  --editor-bg: #1b1d22;
+  --editor-active-line: rgba(255, 255, 255, 0.04);
+  --selection: rgba(91, 141, 239, 0.32);
+  --selection-match: rgba(227, 179, 65, 0.28);
+  --el-highlight: rgba(91, 141, 239, 0.13);
+  --match-bg: rgba(227, 179, 65, 0.28);
+  --match-border: rgba(227, 179, 65, 0.7);
+  --match-selected-bg: rgba(227, 179, 65, 0.45);
+
+  --syn-tag: #7ee787;
+  --syn-attr: #ffa657;
+  --syn-string: #a5d6ff;
+  --syn-comment: #7d8590;
+  --syn-punct: #6c7380;
+  --syn-meta: #d2a8ff;
+  --syn-entity: #ff7b72;
+
+  --diff-add-bg: rgba(63, 185, 80, 0.16);
+  --diff-add-strong: rgba(63, 185, 80, 0.38);
+  --diff-del-bg: rgba(248, 81, 73, 0.16);
+  --diff-del-strong: rgba(248, 81, 73, 0.4);
+
+  --c-word: #4f86d8;
+  --c-excel: #38a669;
+  --c-ppt: #e0643e;
+  --c-visio: #6f8be0;
+  --c-odf: #33b3b3;
+  --c-zip: #8d95a3;
+
+  --ic-xml: #6cb0f0;
+  --ic-rels: #b39af0;
+  --ic-image: #f0a35e;
+  --ic-text: #98a1b0;
+  --ic-package: #e0b25c;
+  --ic-binary: #98a1b0;
+  --ic-folder: #e3b341;
+  --ic-element: #7fbf93;
+}

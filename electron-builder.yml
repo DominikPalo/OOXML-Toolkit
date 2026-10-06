@@ -1,0 +1,46 @@
+appId: dev.ooxml-toolkit.app
+productName: OOXML Toolkit
+copyright: Copyright © 2026 Dominik Paľo
+directories:
+  buildResources: build
+  output: release
+files:
+  - out/**
+  - package.json
+asar: true
+fileAssociations:
+  - { ext: docx, name: Word document, role: Editor }
+  - { ext: docm, name: Word macro-enabled document, role: Editor }
+  - { ext: dotx, name: Word template, role: Editor }
+  - { ext: xlsx, name: Excel workbook, role: Editor }
+  - { ext: xlsm, name: Excel macro-enabled workbook, role: Editor }
+  - { ext: xltx, name: Excel template, role: Editor }
+  - { ext: pptx, name: PowerPoint presentation, role: Editor }
+  - { ext: pptm, name: PowerPoint macro-enabled presentation, role: Editor }
+  - { ext: potx, name: PowerPoint template, role: Editor }
+  - { ext: ppsx, name: PowerPoint slide show, role: Editor }
+  - { ext: vsdx, name: Visio drawing, role: Viewer }
+  - { ext: odt, name: OpenDocument text, role: Viewer }
+  - { ext: ods, name: OpenDocument spreadsheet, role: Viewer }
+  - { ext: odp, name: OpenDocument presentation, role: Viewer }
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  # Unsigned by default so the build works without a Developer ID certificate.
+  # To sign and notarize, remove `identity: null` and configure the CSC_* / APPLE_* variables.
+  identity: null
+win:
+  target:
+    - nsis
+    - portable
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+linux:
+  category: Development
+  target:
+    - AppImage
+  # Add `deb` / `rpm` here once a maintainer e-mail is set in package.json ("author").
