@@ -9,6 +9,20 @@ files comes for free, because they are ZIP + XML as well.
 
 ![Animated tour: browse, edit, review, search, compare and check a document](docs/demo.gif)
 
+## Download
+
+Grab the build for your system from the **[latest release](https://github.com/DominikPalo/OOXML-Toolkit/releases/latest)**:
+
+| Platform | File |
+| --- | --- |
+| macOS — Apple Silicon / Intel | `OOXML-Toolkit-<version>-mac-arm64.dmg` / `…-mac-x64.dmg` |
+| Windows 10/11 (64-bit) | `OOXML-Toolkit-<version>-win-x64-setup.exe` (installer) or `…-portable.exe` |
+| Linux (64-bit) | `OOXML-Toolkit-<version>-linux-x64.AppImage` |
+
+The builds are not code-signed yet, so the first launch needs one extra step — macOS: right-click →
+**Open**; Windows: SmartScreen → **More info → Run anyway**; Linux: `chmod +x` the AppImage. Details are in
+the [release notes](docs/releases/v0.1.0.md). Prefer to build it yourself? See [Getting started](#getting-started).
+
 ## Highlights
 
 - **A tree of the whole package on the left, details on the right** — folders, parts and every XML
@@ -22,7 +36,7 @@ files comes for free, because they are ZIP + XML as well.
 
 ## Getting started
 
-Requires Node.js 20+ and npm.
+To run from source you need Node.js 20+ and npm.
 
 ```bash
 npm install

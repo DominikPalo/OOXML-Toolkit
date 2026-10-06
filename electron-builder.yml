@@ -26,21 +26,31 @@ fileAssociations:
 mac:
   category: public.app-category.developer-tools
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch: [arm64, x64]
   # Unsigned by default so the build works without a Developer ID certificate.
   # To sign and notarize, remove `identity: null` and configure the CSC_* / APPLE_* variables.
   identity: null
+dmg:
+  artifactName: OOXML-Toolkit-${version}-mac-${arch}.${ext}
 win:
   target:
-    - nsis
-    - portable
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   perMachine: false
+  artifactName: OOXML-Toolkit-${version}-win-${arch}-setup.${ext}
+portable:
+  artifactName: OOXML-Toolkit-${version}-win-${arch}-portable.${ext}
 linux:
   category: Development
   target:
-    - AppImage
+    - target: AppImage
+      arch: [x64]
   # Add `deb` / `rpm` here once a maintainer e-mail is set in package.json ("author").
+appImage:
+  artifactName: OOXML-Toolkit-${version}-linux-${arch}.${ext}
