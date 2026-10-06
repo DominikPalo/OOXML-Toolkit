@@ -57,23 +57,63 @@ function contentTypes(
   );
 }
 
-function docProps(title: string, app: string): Files {
-  return {
+export interface CustomProperty {
+  name: string;
+  /** Variant type of the value (default `lpwstr`, i.e. text). */
+  kind?: 'lpwstr' | 'i4' | 'bool' | 'filetime' | 'r8';
+  value: string;
+}
+
+/** Optional document metadata ("tags") for the generated packages. */
+export interface MetadataOptions {
+  /** `cp:keywords` — what Explorer / Finder show as tags. */
+  keywords?: string;
+  category?: string;
+  customProperties?: CustomProperty[];
+}
+
+const CT_CUSTOM = 'application/vnd.openxmlformats-officedocument.custom-properties+xml';
+const CT_TAGS = 'application/vnd.openxmlformats-officedocument.presentationml.tags+xml';
+const CT_SETTINGS = 'application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml';
+
+const esc = (v: string): string =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+function docProps(title: string, app: string, meta: MetadataOptions = {}): Files {
+  const files: Files = {
     'docProps/core.xml':
       DECL +
       '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
       `<dc:title>${title}</dc:title><dc:creator>OOXML Toolkit</dc:creator>` +
+      (meta.keywords ? `<cp:keywords>${esc(meta.keywords)}</cp:keywords>` : '') +
+      (meta.category ? `<cp:category>${esc(meta.category)}</cp:category>` : '') +
       '<dcterms:created xsi:type="dcterms:W3CDTF">2024-01-15T10:30:00Z</dcterms:created>' +
       '<dcterms:modified xsi:type="dcterms:W3CDTF">2024-01-15T10:30:00Z</dcterms:modified></cp:coreProperties>',
     'docProps/app.xml':
       DECL +
       `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>${app}</Application></Properties>`,
   };
+  if (meta.customProperties?.length) {
+    files['docProps/custom.xml'] =
+      DECL +
+      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
+      meta.customProperties
+        .map(
+          (p, i) =>
+            `<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="${i + 2}" name="${esc(p.name)}"><vt:${p.kind ?? 'lpwstr'}>${esc(p.value)}</vt:${p.kind ?? 'lpwstr'}></property>`,
+        )
+        .join('') +
+      '</Properties>';
+  }
+  return files;
 }
+
+const metaOverrides = (meta: MetadataOptions): Array<[string, string]> =>
+  meta.customProperties?.length ? [['/docProps/custom.xml', CT_CUSTOM]] : [];
 
 const CT_CORE = 'application/vnd.openxmlformats-package.core-properties+xml';
 const CT_APP = 'application/vnd.openxmlformats-officedocument.extended-properties+xml';
-const PKG_ROOT_RELS = (main: string): string =>
+const PKG_ROOT_RELS = (main: string, meta: MetadataOptions = {}): string =>
   rels([
     ['rId1', `${REL}/officeDocument`, main],
     [
@@ -82,17 +122,22 @@ const PKG_ROOT_RELS = (main: string): string =>
       'docProps/core.xml',
     ],
     ['rId3', `${REL}/extended-properties`, 'docProps/app.xml'],
+    ...(meta.customProperties?.length
+      ? [['rId4', `${REL}/custom-properties`, 'docProps/custom.xml'] as [string, string, string]]
+      : []),
   ]);
 
 // ---------------------------------------------------------------------------------------------
 // DOCX
 // ---------------------------------------------------------------------------------------------
 
-export interface DocxOptions {
+export interface DocxOptions extends MetadataOptions {
   title?: string;
   paragraphs?: string[];
   /** Extra attribute value to make two documents differ. */
   heading?: string;
+  /** `w:docVars` in word/settings.xml. */
+  documentVariables?: Record<string, string>;
 }
 
 export function buildDocx(opts: DocxOptions = {}): Uint8Array {
@@ -129,10 +174,14 @@ export function buildDocx(opts: DocxOptions = {}): Uint8Array {
         ],
         ['/docProps/core.xml', CT_CORE],
         ['/docProps/app.xml', CT_APP],
+        ...metaOverrides(opts),
+        ...(opts.documentVariables
+          ? ([['/word/settings.xml', CT_SETTINGS]] as Array<[string, string]>)
+          : []),
       ],
     ),
-    '_rels/.rels': PKG_ROOT_RELS('word/document.xml'),
-    ...docProps(title, 'Microsoft Office Word'),
+    '_rels/.rels': PKG_ROOT_RELS('word/document.xml', opts),
+    ...docProps(title, 'Microsoft Office Word', opts),
     'word/document.xml':
       DECL + `<w:document xmlns:w="${W}" xmlns:r="${NS_R}"><w:body>${body}</w:body></w:document>`,
     'word/styles.xml':
@@ -144,8 +193,22 @@ export function buildDocx(opts: DocxOptions = {}): Uint8Array {
       ['rId1', `${REL}/styles`, 'styles.xml'],
       ['rId2', `${REL}/image`, 'media/image1.png'],
       ['rId3', `${REL}/hyperlink`, 'https://example.com/', 'External'],
+      ...(opts.documentVariables
+        ? [['rId4', `${REL}/settings`, 'settings.xml'] as [string, string, string]]
+        : []),
     ]),
     'word/media/image1.png': PNG_1X1,
+    ...(opts.documentVariables
+      ? {
+          'word/settings.xml':
+            DECL +
+            `<w:settings xmlns:w="${W}"><w:docVars>` +
+            Object.entries(opts.documentVariables)
+              .map(([k, v]) => `<w:docVar w:name="${esc(k)}" w:val="${esc(v)}"/>`)
+              .join('') +
+            '</w:docVars></w:settings>',
+        }
+      : {}),
   });
 }
 
@@ -224,8 +287,13 @@ export function buildXlsx(opts: XlsxOptions = {}): Uint8Array {
 // PPTX
 // ---------------------------------------------------------------------------------------------
 
-export interface PptxOptions {
+export interface PptxOptions extends MetadataOptions {
   slides?: Array<{ title: string; body: string }>;
+  /** PowerPoint tags (`ppt/tags/tagN.xml`) on the presentation and on individual slides (by index). */
+  tags?: {
+    presentation?: Record<string, string>;
+    slides?: Array<Record<string, string> | undefined>;
+  };
 }
 
 export function buildPptx(opts: PptxOptions = {}): Uint8Array {
@@ -235,7 +303,24 @@ export function buildPptx(opts: PptxOptions = {}): Uint8Array {
   ];
   const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
   const P = 'http://schemas.openxmlformats.org/presentationml/2006/main';
-  const slideXml = (s: { title: string; body: string }): string =>
+  const tagParts: Files = {};
+  const addTagPart = (values: Record<string, string>): string => {
+    const name = `ppt/tags/tag${Object.keys(tagParts).length + 1}.xml`;
+    tagParts[name] =
+      DECL +
+      `<p:tagLst xmlns:a="${A}" xmlns:r="${NS_R}" xmlns:p="${P}">` +
+      Object.entries(values)
+        .map(([k, v]) => `<p:tag name="${esc(k)}" val="${esc(v)}"/>`)
+        .join('') +
+      '</p:tagLst>';
+    return name;
+  };
+  const presentationTag = opts.tags?.presentation ? addTagPart(opts.tags.presentation) : undefined;
+  const slideTags = slides.map((_, i) => {
+    const values = opts.tags?.slides?.[i];
+    return values ? addTagPart(values) : undefined;
+  });
+  const slideXml = (s: { title: string; body: string }, tagRid?: string): string =>
     DECL +
     `<p:sld xmlns:a="${A}" xmlns:r="${NS_R}" xmlns:p="${P}"><p:cSld><p:spTree>` +
     '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>' +
@@ -245,7 +330,9 @@ export function buildPptx(opts: PptxOptions = {}): Uint8Array {
     '<p:sp><p:nvSpPr><p:cNvPr id="3" name="Content 2"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>' +
     '<p:spPr><a:xfrm><a:off x="685800" y="1828800"/><a:ext cx="7772400" cy="3429000"/></a:xfrm></p:spPr>' +
     `<p:txBody><a:bodyPr/><a:p><a:r><a:rPr lang="en-US"/><a:t>${s.body}</a:t></a:r></a:p></p:txBody></p:sp>` +
-    '</p:spTree></p:cSld></p:sld>';
+    '</p:spTree>' +
+    (tagRid ? `<p:custDataLst><p:tags r:id="${tagRid}"/></p:custDataLst>` : '') +
+    '</p:cSld></p:sld>';
   const files: Files = {
     '[Content_Types].xml': contentTypes(
       [
@@ -272,15 +359,22 @@ export function buildPptx(opts: PptxOptions = {}): Uint8Array {
         ]),
         ['/docProps/core.xml', CT_CORE],
         ['/docProps/app.xml', CT_APP],
+        ...metaOverrides(opts),
+        ...Object.keys(tagParts).map((n): [string, string] => [`/${n}`, CT_TAGS]),
       ],
     ),
-    '_rels/.rels': PKG_ROOT_RELS('ppt/presentation.xml'),
-    ...docProps('Sample presentation', 'Microsoft Office PowerPoint'),
+    '_rels/.rels': PKG_ROOT_RELS('ppt/presentation.xml', opts),
+    ...docProps('Sample presentation', 'Microsoft Office PowerPoint', opts),
+    ...tagParts,
     'ppt/presentation.xml':
       DECL +
       `<p:presentation xmlns:a="${A}" xmlns:r="${NS_R}" xmlns:p="${P}"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>` +
       `<p:sldIdLst>${slides.map((_, i) => `<p:sldId id="${256 + i}" r:id="rId${i + 2}"/>`).join('')}</p:sldIdLst>` +
-      '<p:sldSz cx="9144000" cy="6858000" type="screen4x3"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>',
+      '<p:sldSz cx="9144000" cy="6858000" type="screen4x3"/><p:notesSz cx="6858000" cy="9144000"/>' +
+      (presentationTag
+        ? `<p:custDataLst><p:tags r:id="rId${slides.length + 3}"/></p:custDataLst>`
+        : '') +
+      '</p:presentation>',
     'ppt/_rels/presentation.xml.rels': rels([
       ['rId1', `${REL}/slideMaster`, 'slideMasters/slideMaster1.xml'],
       ...slides.map((_, i): [string, string, string] => [
@@ -289,6 +383,15 @@ export function buildPptx(opts: PptxOptions = {}): Uint8Array {
         `slides/slide${i + 1}.xml`,
       ]),
       [`rId${slides.length + 2}`, `${REL}/theme`, 'theme/theme1.xml'],
+      ...(presentationTag
+        ? [
+            [`rId${slides.length + 3}`, `${REL}/tags`, presentationTag.replace('ppt/', '')] as [
+              string,
+              string,
+              string,
+            ],
+          ]
+        : []),
     ]),
     'ppt/slideMasters/slideMaster1.xml':
       DECL +
@@ -310,9 +413,18 @@ export function buildPptx(opts: PptxOptions = {}): Uint8Array {
       `<a:theme xmlns:a="${A}" name="Office Theme"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1></a:clrScheme></a:themeElements></a:theme>`,
   };
   slides.forEach((s, i) => {
-    files[`ppt/slides/slide${i + 1}.xml`] = slideXml(s);
+    files[`ppt/slides/slide${i + 1}.xml`] = slideXml(s, slideTags[i] ? 'rId2' : undefined);
     files[`ppt/slides/_rels/slide${i + 1}.xml.rels`] = rels([
       ['rId1', `${REL}/slideLayout`, '../slideLayouts/slideLayout1.xml'],
+      ...(slideTags[i]
+        ? [
+            ['rId2', `${REL}/tags`, `../${slideTags[i]!.replace('ppt/', '')}`] as [
+              string,
+              string,
+              string,
+            ],
+          ]
+        : []),
     ]);
   });
   return zipFiles(files);
