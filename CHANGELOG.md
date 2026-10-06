@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. Each release is published on the
 [releases page](https://github.com/DominikPalo/OOXML-Toolkit/releases) with its installers.
 
+## Unreleased
+
+- **Document tags on the overview:** keywords and categories, custom properties (with types), PowerPoint
+  tags (per presentation and slide) and Word document variables are listed below the document
+  properties; each entry opens the XML that stores it, and a filter appears for files with many tags.
+
 ## 0.1.1 — 2026-10-06
 
 - **Fixed:** the macOS app could not be opened after a browser download (“OOXML Toolkit is damaged”).

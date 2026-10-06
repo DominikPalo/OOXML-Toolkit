@@ -78,6 +78,15 @@ the largest ones, the document properties and a one-click package check.
 
 ![Package overview](docs/screenshots/overview.png)
 
+Below the properties, **Document tags** collects the metadata attached to the file: keywords and
+categories (what Explorer and Finder show as *tags*), custom properties such as sensitivity labels,
+Word document variables and the tags that add-ins store in PowerPoint presentations and slides. Click
+any entry to jump to the XML that holds it; with many tags, a filter box appears.
+
+| | |
+| --- | --- |
+| ![Tags of a presentation](docs/screenshots/tags-presentation.png) | ![Tags of a Word document](docs/screenshots/tags-document.png) |
+
 Expand folders and XML parts to drill down. Switch to **Relations** to follow the `.rels` graph the
 way Office does — here from `presentation.xml` to its slides — and pick a slide to see it rendered.
 
@@ -164,7 +173,7 @@ and positioned shapes, pictures and notes.
 
 ## Features at a glance
 
-**Viewing** — highlighted, foldable source; relationship tables (incoming and outgoing); image and hex
+**Viewing** — highlighted, foldable source; document tags (keywords, custom properties, PowerPoint tags, Word variables); relationship tables (incoming and outgoing); image and hex
 views; part info (content type, sizes, CRC-32, SHA-256, encoding); open embedded packages as their own
 document.
 

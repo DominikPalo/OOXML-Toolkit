@@ -120,6 +120,20 @@ the main part, a package-check summary and, when you have edits, the list of uns
 
 ![Package overview](screenshots/overview.png)
 
+**Document tags** — the metadata attached to the file, shown below the document properties:
+
+| Group | Where it is stored | Typical content |
+| --- | --- | --- |
+| Keywords, categories | `docProps/core.xml` | What Explorer and Finder call *tags*; split at `;` `,` and line breaks |
+| Custom properties | `docProps/custom.xml` | Name, value and type (text, number, yes/no, date): sensitivity labels, classification footers, add-in settings |
+| PowerPoint tags | `ppt/tags/tagN.xml` | Name/value pairs that add-ins attach to the presentation, its slides, masters and layouts; the *Applies to* column says which (`Presentation`, `Slide 3`, …) |
+| Document variables | `word/settings.xml` | Word's `docVars`, used by templates and add-ins |
+
+Click a keyword or any table row to open the XML that stores it, highlighted. Packages with more than 12
+tags get a *Filter tags* box (it matches names, values, scopes and types), and long tables show the
+first 10 rows with *Show all*. The section is hidden when a file has no tags. To change a tag, edit it
+in the source or the inspector like any other element.
+
 **Previews**
 
 - *Worksheet* — a grid with column letters, a formula bar (click a cell), sheet tabs (hidden sheets are

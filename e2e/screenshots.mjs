@@ -31,6 +31,8 @@ const app = await electron.launch({
       'sample.docx',
       'sample-v2.docx',
       'sample-broken.docx',
+      'sample-tagged.docx',
+      'sample-tagged.pptx',
       'sample.xlsx',
       'sample.pptx',
       'sample-v2.pptx',
@@ -40,7 +42,7 @@ const app = await electron.launch({
 });
 const page = await app.firstWindow();
 await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1360, 860));
-await page.waitForFunction(() => document.querySelectorAll('.tab').length >= 6);
+await page.waitForFunction(() => document.querySelectorAll('.tab').length >= 8);
 
 // ---- helpers ------------------------------------------------------------------------------------
 const command = (id) =>
@@ -160,7 +162,22 @@ await page.getByRole('button', { name: /Run check/ }).click();
 await settle(900);
 await shot('overview');
 
+// ---- 3b. Document tags --------------------------------------------------------------------------------
+for (const [file, name] of [
+  ['sample-tagged.pptx', 'tags-presentation'],
+  ['sample-tagged.docx', 'tags-document'],
+]) {
+  await openTab(file);
+  await explorer();
+  await row(file).click();
+  await page.waitForSelector('.tags-section');
+  await page.locator('.tags-section').evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await shot(name);
+}
+
 // ---- 4. Relations view + slide preview --------------------------------------------------------
+await openTab('sample.pptx');
+await explorer();
 await page.getByRole('button', { name: /Relations/ }).click();
 await settle(200);
 await expand('presentation.xml');
