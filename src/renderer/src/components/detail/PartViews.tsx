@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ExternalLink, FolderOpen, Hash, PackageOpen } from 'lucide-react';
-import { baseName, imageMime, partKind } from '@core/package/kinds';
+import { baseName, extensionOf, isMetafile, partKind } from '@core/package/kinds';
 import { contentTypeOf, shortRelType, sourceOfRels, type Relationship } from '@core/package/opc';
 import { formatBytes } from '@core/text';
 import { getAnalysis, useModelVersion } from '../../store/app';
 import { navigate, openEmbedded } from '../../store/actions';
 import { formatDate, hex32 } from '../../lib/describe';
 import { copyText } from '../../lib/clipboard';
+import { useImageUrl } from '../../lib/imageUrl';
 import type { DocTab } from '../../store/types';
 import { PartIcon } from '../common/Icons';
 import { VirtualList } from '../common/VirtualList';
@@ -259,26 +260,37 @@ export function InfoView({ tab }: { tab: DocTab }) {
 // ---------------------------------------------------------------------------------------------
 
 export function ImageView({ tab }: { tab: DocTab }) {
-  useModelVersion(tab.model);
+  const version = useModelVersion(tab.model);
   const part = tab.selection.part!;
-  const bytes = tab.model.has(part) ? tab.model.getBytes(part) : undefined;
-  const [url, setUrl] = useState<string>();
+  const bytes = useMemo(
+    () => (tab.model.has(part) ? tab.model.getBytes(part) : undefined),
+    [tab.model, part, version],
+  );
+  const { url, state } = useImageUrl(part, bytes);
   const [dims, setDims] = useState<string>();
+  const [broken, setBroken] = useState(false);
   const [fit, setFit] = useState(true);
-
   useEffect(() => {
-    if (!bytes) return;
-    const u = URL.createObjectURL(new Blob([bytes as BlobPart], { type: imageMime(part) }));
-    setUrl(u);
     setDims(undefined);
-    return () => URL.revokeObjectURL(u);
-  }, [bytes, part]);
+    setBroken(false);
+  }, [url]);
 
   if (!bytes) return <div className="empty">This part no longer exists.</div>;
+  const converted = isMetafile(part);
+  const status =
+    state === 'failed' || broken
+      ? 'This image format cannot be previewed.'
+      : state === 'loading'
+        ? converted
+          ? 'Rendering…'
+          : ''
+        : dims && converted
+          ? `${dims} · rendered from ${extensionOf(part).toUpperCase()}`
+          : (dims ?? '');
   return (
     <div className="image-view">
       <div className="image-toolbar">
-        <span className="muted">{dims ?? ''}</span>
+        <span className="muted">{status}</span>
         <span className="spacer" />
         <button className={`btn-ghost ${fit ? 'active' : ''}`} onClick={() => setFit(true)}>
           Fit
@@ -296,7 +308,7 @@ export function ImageView({ tab }: { tab: DocTab }) {
             onLoad={(e) =>
               setDims(`${e.currentTarget.naturalWidth} × ${e.currentTarget.naturalHeight} px`)
             }
-            onError={() => setDims('This image format cannot be previewed.')}
+            onError={() => setBroken(true)}
           />
         )}
       </div>

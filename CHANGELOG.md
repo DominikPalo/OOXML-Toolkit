@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. Each release is published on the
 [releases page](https://github.com/DominikPalo/OOXML-Toolkit/releases) with its installers.
 
+## Unreleased
+
+- **Added:** EMF and WMF images can be previewed — in the image view, the slide preview and the
+  comparison view. They are converted to SVG with [emf-converter](https://github.com/ChristopherVR/emf-converter)
+  (EMF, EMF+ and WMF). The dependency is patched (`patches/`) to stop it overflowing the call stack on
+  drawings with more than ~120 000 shapes, such as large CAD floor plans.
+
 ## 0.1.1 — 2026-10-06
 
 - **Fixed:** the macOS app could not be opened after a browser download (“OOXML Toolkit is damaged”).

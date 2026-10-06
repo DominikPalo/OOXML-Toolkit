@@ -1,13 +1,14 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { contentTypeOf } from '@core/package/opc';
-import { imageMime, isPreviewableImage } from '@core/package/kinds';
+import { isMetafile, isPreviewableImage } from '@core/package/kinds';
 import { readDocument, readDocumentText } from '@core/preview/docx';
 import { columnName, listSheets, readSheet, type Cell } from '@core/preview/xlsx';
 import { listSlides, readSlide, type SlideShape } from '@core/preview/pptx';
 import { getAnalysis, useModelVersion } from '../../store/app';
 import { navigate } from '../../store/actions';
 import { copyText } from '../../lib/clipboard';
+import { imageUrl, nativeImageUrl } from '../../lib/imageUrl';
 import { previewKindOf } from '../../lib/previewKind';
 import type { DocTab } from '../../store/types';
 
@@ -203,18 +204,29 @@ function useImageUrls(tab: DocTab, parts: string[]): Record<string, string> {
   const key = parts.join('|');
   const [urls, setUrls] = useState<Record<string, string>>({});
   useEffect(() => {
+    let live = true;
     const made: string[] = [];
     const next: Record<string, string> = {};
     for (const p of parts) {
       if (!tab.model.has(p) || !isPreviewableImage(p)) continue;
-      const u = URL.createObjectURL(
-        new Blob([tab.model.getBytes(p) as BlobPart], { type: imageMime(p) }),
-      );
-      made.push(u);
-      next[p] = u;
+      const bytes = tab.model.getBytes(p);
+      if (!isMetafile(p)) {
+        made.push((next[p] = nativeImageUrl(p, bytes)));
+        continue;
+      }
+      // EMF/WMF are converted to SVG, which takes a moment: the picture fills in when ready.
+      void imageUrl(p, bytes).then((u) => {
+        if (!u) return;
+        if (!live) return URL.revokeObjectURL(u);
+        made.push(u);
+        setUrls((cur) => ({ ...cur, [p]: u }));
+      });
     }
     setUrls(next);
-    return () => made.forEach((u) => URL.revokeObjectURL(u));
+    return () => {
+      live = false;
+      made.forEach((u) => URL.revokeObjectURL(u));
+    };
   }, [tab.model, key]);
   return urls;
 }
