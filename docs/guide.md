@@ -310,6 +310,13 @@ restore, comparison defaults, and buttons to clear the history or all bookmarks.
 Office files that are password-protected or in a legacy binary format (`.doc`, `.xls`, `.ppt`) are not
 ZIP archives. Save an unprotected copy in the current format (`.docx`, `.xlsx`, `.pptx`) first.
 
+**macOS says the app is “damaged” or blocks it on first launch.**
+The builds are not notarized (that needs a paid Apple Developer ID), so macOS quarantines the download.
+Open the app once, then use **System Settings → Privacy & Security → Open Anyway** (macOS 14 and
+earlier: right-click → **Open**). Or remove the quarantine flag in a terminal:
+`xattr -dr com.apple.quarantine "/Applications/OOXML Toolkit.app"`. Version 0.1.0 had an invalid code
+signature and showed the “damaged” message with no way forward — use 0.1.1 or later.
+
 **Why does the XML look re-indented when the file is minified?**
 That is the *Pretty* view. Turn it off in the editor toolbar (or the settings) to see the file exactly
 as stored. The file itself is only changed when you edit.

@@ -19,9 +19,16 @@ Grab the build for your system from the **[latest release](https://github.com/Do
 | Windows 10/11 (64-bit) | `OOXML-Toolkit-<version>-win-x64-setup.exe` (installer) or `…-portable.exe` |
 | Linux (64-bit) | `OOXML-Toolkit-<version>-linux-x86_64.AppImage` |
 
-The builds are not code-signed yet, so the first launch needs one extra step — macOS: right-click →
-**Open**; Windows: SmartScreen → **More info → Run anyway**; Linux: `chmod +x` the AppImage. Details are in
-the [release notes](docs/releases/v0.1.0.md). Prefer to build it yourself? See [Getting started](#getting-started).
+The builds are not notarized yet, so each system asks for a one-time confirmation on first launch:
+
+- **macOS** — open the app once (macOS blocks it), then go to **System Settings → Privacy & Security**
+  and click **Open Anyway**. On macOS 14 and earlier, right-click → **Open** works instead. In a terminal:
+  `xattr -dr com.apple.quarantine "/Applications/OOXML Toolkit.app"`.
+- **Windows** — SmartScreen: **More info → Run anyway**.
+- **Linux** — `chmod +x` the AppImage (and install FUSE 2 if it does not start).
+
+Details are in the [release notes](docs/releases/v0.1.1.md). Prefer to build it yourself? See
+[Getting started](#getting-started).
 
 ## Highlights
 

@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. Each release is published on the
 [releases page](https://github.com/DominikPalo/OOXML-Toolkit/releases) with its installers.
 
+## 0.1.1 — 2026-10-06
+
+- **Fixed:** the macOS app could not be opened after a browser download (“OOXML Toolkit is damaged”).
+  The 0.1.0 bundle kept the original Electron signature, which is invalid for the re-packaged app.
+  macOS builds are now signed ad hoc with a valid signature, and the release workflow verifies the
+  signature of every DMG before publishing.
+- Docs: corrected first-launch instructions for macOS (Open Anyway) and the Linux AppImage file name.
+- Project pinned to Node.js 24; CI and release workflows run on Node 24 actions.
+
 ## 0.1.0 — 2026-10-06
 
 First public release. See the [release notes](docs/releases/v0.1.0.md) for the feature overview and
