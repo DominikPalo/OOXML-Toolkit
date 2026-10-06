@@ -17,7 +17,7 @@ Grab the build for your system from the **[latest release](https://github.com/Do
 | --- | --- |
 | macOS — Apple Silicon / Intel | `OOXML-Toolkit-<version>-mac-arm64.dmg` / `…-mac-x64.dmg` |
 | Windows 10/11 (64-bit) | `OOXML-Toolkit-<version>-win-x64-setup.exe` (installer) or `…-portable.exe` |
-| Linux (64-bit) | `OOXML-Toolkit-<version>-linux-x64.AppImage` |
+| Linux (64-bit) | `OOXML-Toolkit-<version>-linux-x86_64.AppImage` |
 
 The builds are not code-signed yet, so the first launch needs one extra step — macOS: right-click →
 **Open**; Windows: SmartScreen → **More info → Run anyway**; Linux: `chmod +x` the AppImage. Details are in
