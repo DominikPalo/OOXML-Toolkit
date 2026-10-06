@@ -6,6 +6,9 @@
   "author": "Dominik Paľo",
   "license": "MIT",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -33,7 +36,7 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.13",
     "@lezer/highlight": "^1.2.5",
-    "@types/node": "^26.6.4",
+    "@types/node": "^24.19.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",

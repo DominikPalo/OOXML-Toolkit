@@ -36,7 +36,7 @@ the [release notes](docs/releases/v0.1.0.md). Prefer to build it yourself? See [
 
 ## Getting started
 
-To run from source you need Node.js 20+ and npm.
+To run from source you need **Node.js 24** (see `.nvmrc`; with nvm, `nvm use`) and npm.
 
 ```bash
 npm install

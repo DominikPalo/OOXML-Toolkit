@@ -5,6 +5,8 @@ for the feature list and architecture overview.
 
 ## Commands
 
+Node.js 24 (`.nvmrc`; `engine-strict` is on, so older versions fail at `npm install`).
+
 - `npm run dev` (Electron, hot reload) · `npm run dev:web` (same UI in a browser at :5199)
 - `npm test` (vitest, `tests/`) · `npm run typecheck` · `npm run build`
 - `npm run e2e` drives the built Electron app with Playwright (needs `npm run samples` once).
