@@ -2355,3 +2355,55 @@ body.resizing .resize-handle {
     transition: none !important;
   }
 }
+
+/* ---------- Document tags (overview) ---------- */
+.tags-section {
+  margin-top: 6px;
+}
+.tags-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tag-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+.tag-filter .input {
+  width: 190px;
+  height: 26px;
+}
+.tag-group {
+  margin: 6px 0 14px;
+}
+.tag-group h4 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+.tag-hint {
+  font-weight: 400;
+}
+.chip.tag {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.chip.tag:hover {
+  border-color: var(--accent);
+}
+.tag-table td {
+  max-width: 520px;
+}
+.tag-table td.mono {
+  font-size: 12px;
+  user-select: text;
+}

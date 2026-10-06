@@ -3,6 +3,7 @@ import { CheckCircle2, FolderSearch, GitCompare, ShieldCheck, TriangleAlert } fr
 import { baseName, partKind } from '@core/package/kinds';
 import { contentTypeOf } from '@core/package/opc';
 import { formatBytes } from '@core/text';
+import { readDocumentTags } from '@core/package/tags';
 import { host } from '../../host';
 import { getAnalysis, useModelVersion } from '../../store/app';
 import {
@@ -15,12 +16,12 @@ import {
 import { formatDate } from '../../lib/describe';
 import type { DocTab } from '../../store/types';
 import { DocBadge, PartIcon } from '../common/Icons';
+import { TagsSection } from './TagsSection';
 
 const CORE_FIELDS: Array<[string, string]> = [
   ['title', 'Title'],
   ['subject', 'Subject'],
   ['creator', 'Author'],
-  ['keywords', 'Keywords'],
   ['description', 'Comments'],
   ['lastModifiedBy', 'Last modified by'],
   ['revision', 'Revision'],
@@ -82,6 +83,7 @@ export function OverviewView({ tab }: { tab: DocTab }) {
     return { total, xml, media, largest: sizes.slice(0, 8) };
   }, [model, version, analysis]);
 
+  const tags = useMemo(() => readDocumentTags(model, analysis), [model, analysis, version]);
   const core = readProps(tab, 'docProps/core.xml', CORE_FIELDS);
   const app = readProps(tab, 'docProps/app.xml', APP_FIELDS);
   const changed = model.changedParts();
@@ -261,6 +263,8 @@ export function OverviewView({ tab }: { tab: DocTab }) {
           )}
         </div>
       )}
+
+      <TagsSection tab={tab} tags={tags} />
 
       {analysis.mainPart && (
         <section>

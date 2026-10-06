@@ -29,6 +29,43 @@ const files: Record<string, Uint8Array> = {
     ],
   }),
   'sample-broken.docx': buildBrokenDocx(),
+  // Documents with tags: keywords, custom properties, Word document variables and PowerPoint tags.
+  'sample-tagged.docx': buildDocx({
+    title: 'Master services agreement',
+    keywords: 'contract; legal, 2026, ACME',
+    category: 'Finance',
+    customProperties: [
+      { name: 'Project', value: 'Atlas' },
+      { name: 'Revision', kind: 'i4', value: '7' },
+      { name: 'Reviewed', kind: 'bool', value: 'true' },
+      { name: 'DueDate', kind: 'filetime', value: '2026-11-30T12:00:00Z' },
+      { name: 'MSIP_Label_0f1a2b3c_Name', value: 'Confidential' },
+    ],
+    documentVariables: { Customer: 'ACME Corp.', ContractNumber: 'MSA-2026-0042' },
+  }),
+  'sample-tagged.pptx': buildPptx({
+    keywords: 'kickoff; quarterly review',
+    customProperties: [
+      { name: 'SlidoAppVersion', value: '1.12.0.5601' },
+      { name: 'MSIP_Label_0f1a2b3c_Name', value: 'Internal' },
+    ],
+    slides: [
+      { title: 'Welcome', body: 'First slide body text' },
+      { title: 'Agenda', body: 'Second slide body text' },
+      { title: 'Live poll', body: 'Third slide body text' },
+    ],
+    tags: {
+      presentation: {
+        SLIDO_APP_VERSION: '1.12.0.5601',
+        SLIDO_EVENT_UUID: '60b890ad-90e0-45ca-bf8b-e5cc66d7b4cc',
+      },
+      slides: [
+        undefined,
+        { SLIDO_SLIDE_TYPE: 'agenda' },
+        { SLIDO_POLL_ID: 'p-2c91', SLIDO_SLIDE_TYPE: 'poll' },
+      ],
+    },
+  }),
   'sample.xlsx': buildXlsx(),
   'sample-v2.xlsx': buildXlsx({ b2: 99, sheetName: 'Fruit & Veg' }),
   'sample.pptx': buildPptx(),

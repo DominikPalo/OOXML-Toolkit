@@ -22,7 +22,7 @@ if (!existsSync(join(root, 'samples', 'sample.docx')))
 const work = mkdtempSync(join(tmpdir(), 'ooxml-e2e-'));
 const docPath = join(work, 'work.docx');
 const sheetPath = join(work, 'book.xlsx');
-copyFileSync(join(root, 'samples', 'sample.docx'), docPath);
+copyFileSync(join(root, 'samples', 'sample-tagged.docx'), docPath);
 copyFileSync(join(root, 'samples', 'sample.xlsx'), sheetPath);
 const original = unzipSync(new Uint8Array(readFileSync(docPath)));
 
@@ -76,6 +76,20 @@ await step('search results never leak from one document into another', async () 
   );
   await page.locator('.tab', { hasText: 'work.docx' }).click();
   await page.locator('.activity-btn[aria-label="Explorer"]').click();
+});
+
+await step('the overview lists the document tags and jumps to their XML', async () => {
+  await page.locator('.tree-row').first().click(); // package root → overview
+  await page.waitForSelector('.tags-section');
+  const text = await page.textContent('.tags-section');
+  assert.match(text, /contract/); // keyword
+  assert.match(text, /Finance/); // category
+  assert.match(text, /Project/); // custom property
+  assert.match(text, /ContractNumber/); // Word document variable
+  await page.locator('.tag-table tr', { hasText: 'ContractNumber' }).click();
+  await page.waitForSelector('.cm-el-highlight');
+  assert.match(await page.textContent('.cm-el-highlight'), /MSA-2026-0042/);
+  await page.screenshot({ path: join(shots, '01b-tag-source.png') });
 });
 
 await step('tree → part → element selection shows the source', async () => {
