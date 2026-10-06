@@ -152,7 +152,7 @@ export function Sidebar() {
         </div>
       );
   } else if (view === 'explorer') body = <Explorer tab={tab} />;
-  else if (view === 'search') body = <SearchPanel tab={tab} />;
+  else if (view === 'search') body = <SearchPanel key={tab.id} tab={tab} />;
   else body = <ProblemsPanel tab={tab} />;
 
   return (

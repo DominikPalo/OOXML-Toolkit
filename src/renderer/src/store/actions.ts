@@ -400,6 +400,9 @@ export function navigate(
   sel: Selection,
   options: { record?: boolean; detailTab?: DetailTab; sidebar?: boolean } = {},
 ): void {
+  // Never select a part the document does not contain (e.g. a stale link from another document).
+  const target = docById(id);
+  if (!target || (sel.part && !target.model.has(sel.part))) return;
   updateDoc(id, (tab) => {
     const same = sameSelection(tab.selection, sel);
     const navBack =

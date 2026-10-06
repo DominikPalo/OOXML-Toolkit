@@ -137,7 +137,10 @@ function SourceEditorInner({ tab, part, pretty }: { tab: DocTab; part: string; p
       setCaretPath(el ? { xpath: xpathOf(el), path: elementPath(el) } : null);
     }, 200);
   };
-  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    useEditorStatus.setState({ line: 1, column: 1 }); // a fresh editor starts at the top
+    return () => clearTimeout(timer.current);
+  }, []);
 
   useEffect(() => {
     const onFind = (): void => editor.current?.openFind();

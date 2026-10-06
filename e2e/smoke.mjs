@@ -21,7 +21,9 @@ if (!existsSync(join(root, 'samples', 'sample.docx')))
   throw new Error('Run `npm run samples` first.');
 const work = mkdtempSync(join(tmpdir(), 'ooxml-e2e-'));
 const docPath = join(work, 'work.docx');
+const sheetPath = join(work, 'book.xlsx');
 copyFileSync(join(root, 'samples', 'sample.docx'), docPath);
+copyFileSync(join(root, 'samples', 'sample.xlsx'), sheetPath);
 const original = unzipSync(new Uint8Array(readFileSync(docPath)));
 
 const executable = process.env.OOXML_E2E_EXECUTABLE
@@ -29,7 +31,12 @@ const executable = process.env.OOXML_E2E_EXECUTABLE
   : undefined;
 const app = await electron.launch({
   executablePath: executable,
-  args: [...(executable ? [] : [root]), `--user-data-dir=${join(work, 'profile')}`, docPath],
+  args: [
+    ...(executable ? [] : [root]),
+    `--user-data-dir=${join(work, 'profile')}`,
+    docPath,
+    sheetPath,
+  ],
   env: { ...process.env, OOXML_E2E: '1', ELECTRON_ENABLE_LOGGING: '0' },
 });
 const page = await app.firstWindow();
@@ -43,11 +50,32 @@ const step = async (name, fn) => {
   console.log('ok');
 };
 
-await step('window opens the file passed on the command line', async () => {
-  await page.waitForSelector('.tab.active', { timeout: 15000 });
-  assert.match(await page.textContent('.tab.active'), /work\.docx/);
+await step('window opens the files passed on the command line', async () => {
+  await page.waitForFunction(() => document.querySelectorAll('.tab').length === 2, undefined, {
+    timeout: 15000,
+  });
   assert.equal(await page.evaluate(() => window.host?.kind), 'electron');
+  await page.locator('.tab', { hasText: 'work.docx' }).click();
+  assert.match(await page.textContent('.tab.active'), /work\.docx/);
   await page.screenshot({ path: join(shots, '01-overview.png') });
+});
+
+await step('search results never leak from one document into another', async () => {
+  await page.locator('.activity-btn[aria-label="Search"]').click();
+  await page.getByLabel('Search query').fill('Hello');
+  await page.waitForSelector('.result-hit');
+  assert.match(await page.textContent('.results'), /document\.xml/);
+  await page.locator('.tab', { hasText: 'book.xlsx' }).click();
+  // Immediately after the switch (before any debounced re-search) nothing from the Word file may be offered:
+  // clicking such a hit would try to open word/document.xml in the spreadsheet.
+  assert.equal(await page.locator('.result-hit').count(), 0, 'stale hits are still shown');
+  assert.doesNotMatch(await page.textContent('.main'), /no longer exists/);
+  // the same query is then re-run against the spreadsheet, which does not contain it
+  await page.waitForFunction(() =>
+    /0 results/.test(document.querySelector('.search-status')?.textContent ?? ''),
+  );
+  await page.locator('.tab', { hasText: 'work.docx' }).click();
+  await page.locator('.activity-btn[aria-label="Explorer"]').click();
 });
 
 await step('tree → part → element selection shows the source', async () => {
@@ -153,12 +181,15 @@ const page2 = await app2.firstWindow();
 await step('the previous file is restored on the next start', async () => {
   await page2.waitForSelector('.tab', { timeout: 15000 });
   assert.match(await page2.textContent('.tabs'), /work\.docx/);
+  assert.match(await page2.textContent('.tabs'), /book\.xlsx/);
   await page2.waitForSelector('.cm-content, .part-view, .overview', { timeout: 10000 });
   await page2.screenshot({ path: join(shots, '04-restored.png') });
 });
 
 await step('closing the restored tab shows the recent-files list', async () => {
-  await page2.getByRole('button', { name: /^Close work\.docx$/ }).click();
+  // Both documents come back; close them all to reach the welcome screen.
+  while (await page2.locator('.tab').count())
+    await page2.locator('.tab').first().locator('.tab-close').click();
   await page2.waitForSelector('.welcome');
   assert.match(await page2.textContent('.welcome-recent'), /work\.docx/);
   // clicking a history entry re-opens it through the allow-listed main-process path

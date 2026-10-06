@@ -25,16 +25,30 @@ function HitPreview({ hit }: { hit: SearchHit }) {
   );
 }
 
+/**
+ * The panel is remounted per document (results always belong to the document on screen), but the
+ * query and options carry over, so switching tabs re-runs the same search on the new document.
+ */
+const remembered = {
+  mode: 'text' as Mode,
+  query: '',
+  caseSensitive: false,
+  regex: false,
+  wholeWord: false,
+  currentOnly: false,
+};
+
 export function SearchPanel({ tab }: { tab: DocTab }) {
   const version = useModelVersion(tab.model);
   const prettyPrint = useApp((s) => s.settings.prettyPrint);
   const input = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<Mode>('text');
-  const [query, setQuery] = useState('');
-  const [caseSensitive, setCase] = useState(false);
-  const [regex, setRegex] = useState(false);
-  const [wholeWord, setWord] = useState(false);
-  const [currentOnly, setCurrentOnly] = useState(false);
+  const [mode, setMode] = useState<Mode>(remembered.mode);
+  const [query, setQuery] = useState(remembered.query);
+  const [caseSensitive, setCase] = useState(remembered.caseSensitive);
+  const [regex, setRegex] = useState(remembered.regex);
+  const [wholeWord, setWord] = useState(remembered.wholeWord);
+  const [currentOnly, setCurrentOnly] = useState(remembered.currentOnly);
+  Object.assign(remembered, { mode, query, caseSensitive, regex, wholeWord, currentOnly });
   const [text, setText] = useState<SearchResult>();
   const [xp, setXp] = useState<XPathResultSet>();
   const [busy, setBusy] = useState(false);
