@@ -109,7 +109,7 @@ Right-click a row:
 | XML part | **Preview** (worksheets, the main document part, slides) · **Source** · **Relationships** · **Info** |
 | `.rels` part | **Table** · **Source** · **Info** |
 | XML element | **Source** (highlighted) · **Inspector** |
-| Image | **Preview** · **Hex** · **Info** (SVG also has **Source**) |
+| Image | **Preview** · **Hex** · **Info** (SVG also has **Source**; EMF and WMF are previewed too) |
 | Text file | **Source** · **Hex** · **Info** |
 | Embedded package | **Info** (with *Open as package*) · **Hex** |
 | Other binary | **Hex** · **Info** |
@@ -128,6 +128,10 @@ the main part, a package-check summary and, when you have edits, the list of uns
   rendered. *Copy text* copies the whole body.
 - *Slide* — shapes at their real positions, text, pictures and tables, plus speaker notes. Use ‹ › to
   step through the slides in presentation order. It is a simplified rendering.
+- *Image* — scaled to fit or at 100 %. EMF and WMF metafiles (common in decks pasted from CAD, Visio or
+  Excel) are replayed as vector graphics, so they stay sharp when zoomed; the toolbar says when a
+  picture was rendered from a metafile. The same conversion is used for pictures in the slide preview
+  and in the comparison view.
 
 ![Worksheet preview](screenshots/preview-worksheet.png)
 
@@ -237,7 +241,7 @@ or *Browse…*. Unsaved edits of open documents are included.
   and jump between changes with the arrows.
 - **Ignore formatting-only differences** marks parts whose XML is equivalent as **F**. **Ignore
   attribute order** also normalises the order of attributes.
-- Images are shown side by side; other binary parts show sizes and CRC-32.
+- Images (including EMF and WMF) are shown side by side; other binary parts show sizes and CRC-32.
 - **Swap sides**, **Refresh** (re-reads live documents) and **Export report** (Markdown) are in the header.
 
 ![Unified diff](screenshots/compare-unified.png)

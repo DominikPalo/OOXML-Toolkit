@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowLeftRight,
@@ -18,7 +18,7 @@ import {
   type DiffStatus,
   type PartDiff,
 } from '@core/compare/compare';
-import { imageMime, isPreviewableImage, partKind } from '@core/package/kinds';
+import { isPreviewableImage, partKind } from '@core/package/kinds';
 import { buildFolderTree, folderLabel, type FolderNode } from '@core/package/tree';
 import { formatBytes } from '@core/text';
 import { host } from '../../host';
@@ -27,6 +27,7 @@ import { runCompare, setCompareFilter, swapCompare, toggleCompareRow } from '../
 import { toast, toastError } from '../../store/ui';
 import { hex32 } from '../../lib/describe';
 import { prettyText } from '../../lib/display';
+import { useImageUrl } from '../../lib/imageUrl';
 import type { CompareTab } from '../../store/types';
 import { FolderIcon, PartIcon } from '../common/Icons';
 import { VirtualList } from '../common/VirtualList';
@@ -444,13 +445,7 @@ function ImageBox({
   name: string;
   label: string;
 }) {
-  const [url, setUrl] = useState<string>();
-  useEffect(() => {
-    if (!bytes) return setUrl(undefined);
-    const u = URL.createObjectURL(new Blob([bytes as BlobPart], { type: imageMime(name) }));
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [bytes, name]);
+  const { url, state } = useImageUrl(name, bytes);
   return (
     <div className="image-box">
       <div className="image-box-label">{label}</div>
@@ -458,7 +453,9 @@ function ImageBox({
         {url ? (
           <img src={url} className="fit" alt={label} />
         ) : (
-          <span className="muted">not present</span>
+          <span className="muted">
+            {!bytes ? 'not present' : state === 'loading' ? 'Rendering…' : 'cannot be previewed'}
+          </span>
         )}
       </div>
     </div>

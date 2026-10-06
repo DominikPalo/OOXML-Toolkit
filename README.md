@@ -145,7 +145,8 @@ problem to jump to it.
 ### 8. Look at the content, not just the XML
 
 Worksheets, documents and slides have a **Preview** tab: a grid with a formula bar, a text outline,
-and positioned shapes, pictures and notes.
+and positioned shapes, pictures and notes. Images get one too — including **EMF** and **WMF**
+metafiles, which are drawn as vector graphics (CAD and Visio exports, pasted Office charts).
 
 | | |
 | --- | --- |
@@ -164,8 +165,8 @@ and positioned shapes, pictures and notes.
 
 ## Features at a glance
 
-**Viewing** — highlighted, foldable source; relationship tables (incoming and outgoing); image and hex
-views; part info (content type, sizes, CRC-32, SHA-256, encoding); open embedded packages as their own
+**Viewing** — highlighted, foldable source; relationship tables (incoming and outgoing); image (PNG, SVG,
+EMF, WMF, …) and hex views; part info (content type, sizes, CRC-32, SHA-256, encoding); open embedded packages as their own
 document.
 
 **Editing** — source editor, inspector, context-menu element operations; add, replace, export, rename
@@ -226,7 +227,7 @@ src/
     package/    PackageModel (overlay + undo history), OPC content types & relationships,
                 part classification, folder tree, package validation
     compare/    part-level package diff
-    preview/    worksheet / document / slide extraction
+    preview/    worksheet / document / slide extraction, EMF / WMF → SVG conversion
     search.ts   full-text search and fuzzy part matching
   main/       Electron main process: window, native menu, file access with a path allow-list,
               atomic writes, JSON storage for history / bookmarks / settings / session
@@ -256,6 +257,9 @@ Key ideas:
   according to the ECMA-376 schemas.
 - The slide preview is a simplified rendering (positions, text, pictures, tables); fonts, fills,
   charts and SmartArt are not drawn. The worksheet preview shows raw values without number formats.
+- EMF / WMF previews are converted to SVG with [emf-converter](https://github.com/ChristopherVR/emf-converter):
+  the picture is sized to the drawn content rather than to the header frame, and text uses the fonts
+  installed on your machine. Very large metafiles (hundreds of thousands of records) take a moment.
 - ZIP64 archives can be read but are not written (archives must stay below 4 GiB / 65 535 entries).
 
 ## License

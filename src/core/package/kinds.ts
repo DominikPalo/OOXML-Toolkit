@@ -62,7 +62,9 @@ const PACKAGE_EXT = new Set([
 ]);
 
 /** Image formats Chromium can render in an <img>. */
-const PREVIEWABLE = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']);
+const NATIVE_PREVIEWABLE = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']);
+/** Windows metafiles: previewed by converting them to SVG first (`core/preview/metafile`). */
+const METAFILE = new Set(['emf', 'wmf']);
 
 export function extensionOf(name: string): string {
   const slash = name.lastIndexOf('/');
@@ -97,8 +99,15 @@ export function partKind(name: string, contentType?: string, head?: Uint8Array):
   return 'binary';
 }
 
+/** Images the app can show: natively in an <img>, or after converting a metafile to SVG. */
 export function isPreviewableImage(name: string): boolean {
-  return PREVIEWABLE.has(extensionOf(name));
+  const ext = extensionOf(name);
+  return NATIVE_PREVIEWABLE.has(ext) || METAFILE.has(ext);
+}
+
+/** EMF / WMF: needs `metafileToSvg` before an <img> can show it. */
+export function isMetafile(name: string): boolean {
+  return METAFILE.has(extensionOf(name));
 }
 
 export function imageMime(name: string): string {
