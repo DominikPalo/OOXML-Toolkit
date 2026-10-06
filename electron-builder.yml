@@ -28,9 +28,14 @@ mac:
   target:
     - target: dmg
       arch: [arm64, x64]
-  # Unsigned by default so the build works without a Developer ID certificate.
-  # To sign and notarize, remove `identity: null` and configure the CSC_* / APPLE_* variables.
-  identity: null
+  # No Developer ID certificate yet, so the app is signed *ad hoc* ("-"). That gives it a valid code
+  # signature (an unsigned/re-packaged Electron app is reported as "damaged" on Apple Silicon once a
+  # browser has quarantined the download) but it is NOT notarized: users still confirm the first
+  # launch once (see the release notes).
+  # To sign and notarize properly, replace `identity: "-"` with a Developer ID, enable
+  # `hardenedRuntime`, set `notarize: true`, and provide the usual CSC_* / APPLE_* variables.
+  identity: "-"
+  hardenedRuntime: false
 dmg:
   artifactName: OOXML-Toolkit-${version}-mac-${arch}.${ext}
 win:

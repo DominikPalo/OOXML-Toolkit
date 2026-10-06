@@ -53,6 +53,21 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
+      - name: Verify the macOS code signatures
+        if: runner.os == 'macOS'
+        run: |
+          # An invalid signature makes macOS report the downloaded app as "damaged". Fail the release
+          # instead of shipping that.
+          for dmg in release/*.dmg; do
+            echo "Checking $dmg"
+            mnt=$(mktemp -d)
+            hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg" > /dev/null
+            codesign --verify --deep --strict -vv "$mnt/OOXML Toolkit.app"
+            status=$?
+            hdiutil detach "$mnt" > /dev/null
+            [ $status -eq 0 ] || exit $status
+          done
+
       - uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.os }}
