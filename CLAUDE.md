@@ -9,6 +9,8 @@ for the feature list and architecture overview.
 - `npm test` (vitest, `tests/`) · `npm run typecheck` · `npm run build`
 - `npm run e2e` drives the built Electron app with Playwright (needs `npm run samples` once).
   Against a packaged build: `OOXML_E2E_EXECUTABLE=<path to app binary> node e2e/smoke.mjs`.
+- Docs: `README.md` (examples) and `docs/guide.md` (reference). Their images come from `npm run screenshots`
+  and `npm run demo` (needs ffmpeg) — regenerate them after UI changes instead of editing by hand.
 - Format with `npx prettier --write` (config in `.prettierrc.json`: single quotes, 100 cols).
 
 ## Conventions that matter

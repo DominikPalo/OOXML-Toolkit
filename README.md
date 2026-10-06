@@ -1,67 +1,161 @@
 # OOXML Toolkit
 
+[![CI](https://github.com/DominikPalo/OOXML-Toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/DominikPalo/OOXML-Toolkit/actions/workflows/ci.yml)
+
 A cross-platform desktop app (macOS, Windows, Linux) for **viewing, editing and comparing OOXML
 packages** — `.docx`, `.xlsx`, `.pptx` and their macro/template variants (`.docm`, `.xlsm`, `.pptm`,
 `.dotx`, `.xltx`, `.potx`, …). Basic support for ODF packages (`.odt`, `.ods`, `.odp`) and plain ZIP
 files comes for free, because they are ZIP + XML as well.
 
-![Source view with the selected element highlighted](docs/screenshots/source-dark.png)
+![Animated tour: browse, edit, review, search, compare and check a document](docs/demo.gif)
 
-<table>
-  <tr>
-    <td><img src="docs/screenshots/inspector-light.png" alt="Element inspector"></td>
-    <td><img src="docs/screenshots/compare-dark.png" alt="Comparing two presentations"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/worksheet-light.png" alt="Worksheet preview"></td>
-    <td></td>
-  </tr>
-</table>
+## Highlights
 
-## Features
+- **A tree of the whole package on the left, details on the right** — folders, parts and every XML
+  element, or the relationship graph.
+- **Edit with confidence** — change XML in the editor or the inspector; every edit is undoable, and
+  saving only rewrites the parts you touched (everything else stays byte-for-byte identical).
+- **Compare** two files, or your unsaved edits against the saved file, down to a side-by-side XML diff.
+- **Find things fast** — text / regex / XPath search across all parts, go-to-part, bookmarks and
+  recent files.
+- **Diagnose** broken packages: malformed XML, dangling relationships, missing content types.
 
-**Tree on the left, details on the right**
+## Getting started
 
-- *Parts* view: the package's folder structure; every XML part expands lazily down to its elements
-  (huge sheets are paginated, so a 250 000-row worksheet stays responsive).
-- *Relations* view: the logical graph, following `.rels` files from the package root, with
-  unreferenced parts collected in their own group.
-- Breadcrumb for the selection, back/forward navigation, keyboard navigation in the tree.
+Requires Node.js 20+ and npm.
 
-**Viewing**
+```bash
+npm install
+npm run dev         # start the Electron app with hot reload
+npm run samples     # optional: generate sample .docx/.xlsx/.pptx files in ./samples to play with
+```
 
-- Syntax-highlighted source with folding and in-part search. XML is shown re-indented, but the
-  formatter only touches ignorable whitespace — text content is never altered.
-- Content previews: worksheet grid with formula bar (XLSX), text outline (DOCX), slide rendering with
-  shapes, pictures, tables and notes (PPTX).
-- Image preview, hex view for binary parts, relationship tables (incoming and outgoing), part info
-  (content type, sizes, CRC-32, SHA-256, encoding).
-- **Package check**: malformed XML (with line/column), dangling relationships, parts without a content
-  type, content-type overrides for missing parts, unreferenced parts.
+Open a file with **File → Open** (`⌘O` / `Ctrl+O`), drop it onto the window, or pass it on the command
+line. See [Development](#development) for installers and the other scripts.
 
-**Editing**
+## Examples
 
-- Edit the XML in the editor, or use the **inspector** to edit attributes and text, add attributes,
-  duplicate, delete, move (e.g. reorder slides) and insert elements. Edits are exact text splices —
-  the rest of the file stays byte-for-byte identical.
-- Add, replace, export, rename (relationships and content types are updated) and delete parts.
-- Undo/redo across all of the above; open embedded packages as their own document.
-- **Saving only rewrites what changed**: untouched parts are copied with their original compressed
-  bytes. Atomic writes, optional `.bak` copy, warning before saving malformed XML.
+The screenshots below were taken from the real app using the files in [`samples/`](samples)
+(`npm run samples` creates them). A complete reference lives in the **[user guide](docs/guide.md)**.
 
-**Comparing**
+### Tour of the window
 
-- Compare two files, or review your unsaved edits against the version on disk.
-- Part-level status (added / removed / modified / formatting-only) with folder roll-ups and filters.
-- Side-by-side or unified XML diff, optionally ignoring formatting and attribute order; image
-  comparison; export the result as a Markdown report.
+![The main window with numbered areas](docs/screenshots/anatomy.png)
 
-**Productivity**
+| | |
+| --- | --- |
+| **1** Tabs — open documents and comparisons (a dot means unsaved changes) | **6** Detail tabs — which ones appear depends on what is selected |
+| **2** Activity bar — Explorer, Search, Bookmarks, Recent files, Package check | **7** Editor toolbar — validity, pretty-printing, format, wrap, find |
+| **3** Tree mode (Parts / Relations), back / forward, collapse all | **8** Source editor, with the selected element highlighted |
+| **4** The tree: folders → parts → XML elements | **9** XPath of the caret and *Locate in tree* |
+| **5** Breadcrumb of the selection, bookmark / copy / export | **10** Status bar — type, part, size, caret, encoding, unsaved parts |
 
-- Bookmarks for parts and individual elements (with notes), recent-file history with pinning, and
-  session restore.
-- Full-text search across all parts (case / whole word / regex) and **XPath** queries.
-- Quick open for parts (`Cmd/Ctrl+P`), light and dark themes, tabs, drag & drop, file associations.
+### 1. See what is inside a document
+
+Open a file and click the root node of the tree. The overview shows how many parts the package has,
+the largest ones, the document properties and a one-click package check.
+
+![Package overview](docs/screenshots/overview.png)
+
+Expand folders and XML parts to drill down. Switch to **Relations** to follow the `.rels` graph the
+way Office does — here from `presentation.xml` to its slides — and pick a slide to see it rendered.
+
+![Relations view with a slide preview](docs/screenshots/relations-slide.png)
+
+### 2. Find where some text lives
+
+Press `⇧⌘F` / `Ctrl+Shift+F`, type what you are looking for, and click a hit: the part opens at the
+match. Options for case, whole word and regular expressions sit inside the search box.
+
+![Text search with results grouped by part](docs/screenshots/search-text.png)
+
+Switch to **XPath** for structural queries. Prefix `x:` addresses a default namespace — in a
+worksheet, `//x:c[x:f]` finds every cell that contains a formula.
+
+![XPath search for formula cells](docs/screenshots/search-xpath.png)
+
+### 3. Change one thing — precisely
+
+Select an element and open the **Inspector**: edit attribute values, add or remove attributes, edit
+text, duplicate, move, delete or insert XML. Here the heading style `Heading1` becomes `Heading2`.
+The tab shows a dot, the status bar counts the unsaved parts, and `⌘Z` / `Ctrl+Z` undoes it.
+
+![Inspector with an edited attribute](docs/screenshots/inspector-edit.png)
+
+Prefer typing? The source editor is a full code editor with folding, find and syntax highlighting.
+**Pretty** re-indents minified XML *for display only*; the file changes only when you actually edit.
+
+### 4. Reorder slides (or any list of elements)
+
+Slide order lives in `presentation.xml`. Right-click a `p:sldId` in the tree and choose **Move Down**.
+
+![Context menu on a slide id](docs/screenshots/context-menu.png)
+
+### 5. Review your edits before saving
+
+On the overview (or via `⌥⌘D` / `Ctrl+Alt+D`) choose **Review changes** to compare the saved file with
+your edited version. Two lines swapped — and nothing else touched:
+
+![Diff of the reordered slide list](docs/screenshots/reorder-slides-diff.png)
+
+Saving (`⌘S`) then rewrites only `presentation.xml`; all other parts are copied unchanged.
+
+### 6. Compare two versions of a document
+
+Click **Compare** in the tab bar, pick the two files (open documents, recent files, or *Browse…*) and
+press **Compare**.
+
+![Compare dialog](docs/screenshots/compare-setup.png)
+
+The tree lists every part with its status — **M**odified, **A**dded, **R**emoved, **F**ormatting-only —
+and folder totals. Select a part to see the XML diff; switch between split and unified, step through
+changes with the arrows, ignore formatting or attribute order, and export a Markdown report.
+
+![Side-by-side diff of two document versions](docs/screenshots/compare-files.png)
+
+### 7. Find out why a file is broken
+
+Open the **Package check** (`⇧⌘M` / `Ctrl+Shift+M`). It reports malformed XML (with line and column),
+relationships that point nowhere, parts without a content type and parts nothing refers to. Click a
+problem to jump to it.
+
+![Package check on a damaged document](docs/screenshots/package-check.png)
+
+### 8. Look at the content, not just the XML
+
+Worksheets, documents and slides have a **Preview** tab: a grid with a formula bar, a text outline,
+and positioned shapes, pictures and notes.
+
+| | |
+| --- | --- |
+| ![Worksheet preview](docs/screenshots/preview-worksheet.png) | ![Document outline](docs/screenshots/preview-document.png) |
+
+### 9. Jump around quickly
+
+- `⌘P` / `Ctrl+P` — **go to part**: type a few letters of any part name.
+- `⌘D` / `Ctrl+D` — **bookmark** the selected part or element. Bookmarks keep a name and a note and
+  re-open their file when needed.
+- Recent files are kept (pin your favourites) and the previous session is restored on start.
+
+| | |
+| --- | --- |
+| ![Go to part](docs/screenshots/quick-open.png) | ![Bookmarks](docs/screenshots/bookmarks.png) |
+
+## Features at a glance
+
+**Viewing** — highlighted, foldable source; relationship tables (incoming and outgoing); image and hex
+views; part info (content type, sizes, CRC-32, SHA-256, encoding); open embedded packages as their own
+document.
+
+**Editing** — source editor, inspector, context-menu element operations; add, replace, export, rename
+(relationships and content types are updated) and delete parts; undo/redo across everything;
+atomic saves with an optional `.bak`; a warning before saving malformed XML.
+
+**Comparing** — two files or unsaved changes; part-level status with folder roll-ups and filters;
+split / unified diff; formatting-only differences detected; image comparison; Markdown report.
+
+**Productivity** — search (text, regex, XPath), go-to-part, bookmarks, history, session restore, tabs,
+drag & drop, file associations, light / dark / system theme.
 
 ### Keyboard shortcuts
 
@@ -73,18 +167,14 @@ files comes for free, because they are ZIP + XML as well.
 | Find in part | `⌘F` | `Ctrl+F` |
 | Bookmark selection | `⌘D` | `Ctrl+D` |
 | Compare files / review changes | `⇧⌘D` / `⌥⌘D` | `Ctrl+Shift+D` / `Ctrl+Alt+D` |
+| Package check | `⇧⌘M` | `Ctrl+Shift+M` |
 | Back / Forward | `⌘[` / `⌘]` | `Ctrl+[` / `Ctrl+]` |
 | Undo / Redo | `⌘Z` / `⇧⌘Z` | `Ctrl+Z` / `Ctrl+Shift+Z` |
+| Toggle side bar | `⌘B` | `Ctrl+B` |
 
-## Getting started
+More in the [user guide](docs/guide.md).
 
-Requires Node.js 20+ and npm.
-
-```bash
-npm install
-npm run dev         # start the Electron app with hot reload
-npm run samples     # optional: generate sample .docx/.xlsx/.pptx files in ./samples
-```
+## Development
 
 | Script | What it does |
 | --- | --- |
@@ -96,14 +186,16 @@ npm run samples     # optional: generate sample .docx/.xlsx/.pptx files in ./sam
 | `npm run build` | Type-check and bundle into `out/` |
 | `npm run pack` | Unpacked app for the current platform in `release/` |
 | `npm run dist` | Installers / archives (dmg, zip, nsis, portable, AppImage) in `release/` |
-| `npm run screenshots` | Regenerate the screenshots in `docs/screenshots` |
+| `npm run samples` | Generate the sample documents in `samples/` |
+| `npm run screenshots` | Regenerate every screenshot in `docs/screenshots` |
+| `npm run demo` | Re-record `docs/demo.gif` (needs `ffmpeg`) |
 | `npm run icon` | Re-render `build/icon.png` from `build/icon.svg` |
 
 Builds are unsigned by default. To sign and notarize on macOS remove `identity: null` from
 `electron-builder.yml` and provide the usual `CSC_*` / `APPLE_*` environment variables; the CI workflow
 in `.github/workflows/ci.yml` builds all three platforms.
 
-## Architecture
+### Architecture
 
 ```
 src/
@@ -120,7 +212,7 @@ src/
   preload/    contextBridge API (sandboxed renderer, no Node access)
   shared/     Host API contract and the command registry (menu and shortcuts come from one list)
   renderer/   React + zustand UI, CodeMirror 6 editors; runs in Electron or a plain browser
-tests/        Vitest unit tests        e2e/  Playwright-driven Electron tests and screenshots
+tests/        Vitest unit tests        e2e/  Playwright-driven Electron tests, screenshots, demo
 ```
 
 Key ideas:

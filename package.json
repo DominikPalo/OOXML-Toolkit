@@ -21,7 +21,8 @@
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "icon": "electron scripts/render-icon.cjs",
-    "screenshots": "npm run build && node e2e/screenshots.mjs"
+    "screenshots": "npm run build && node e2e/screenshots.mjs",
+    "demo": "npm run build && node e2e/demo.mjs"
   },
   "devDependencies": {
     "@codemirror/commands": "^6.11.1",
