@@ -28,14 +28,14 @@ mac:
   target:
     - target: dmg
       arch: [arm64, x64]
-  # No Developer ID certificate yet, so the app is signed *ad hoc* ("-"). That gives it a valid code
-  # signature (an unsigned/re-packaged Electron app is reported as "damaged" on Apple Silicon once a
-  # browser has quarantined the download) but it is NOT notarized: users still confirm the first
-  # launch once (see the release notes).
-  # To sign and notarize properly, replace `identity: "-"` with a Developer ID, enable
-  # `hardenedRuntime`, set `notarize: true`, and provide the usual CSC_* / APPLE_* variables.
-  identity: "-"
-  hardenedRuntime: false
+  # Signed with the "Developer ID Application" certificate (found in the keychain, or imported from
+  # CSC_LINK / CSC_KEY_PASSWORD) with the hardened runtime on, which notarization requires; the default
+  # entitlements for Electron are applied. electron-builder notarizes and staples the .app when
+  # APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID are set (the release workflow requires them;
+  # see .github/workflows/release.yml). `npm run pack` skips signing (-c.mac.identity=null); `npm run dist`
+  # signs with whichever code-signing identity it finds in the keychain, so set
+  # CSC_IDENTITY_AUTO_DISCOVERY=false to build the installers unsigned.
+  hardenedRuntime: true
 dmg:
   artifactName: OOXML-Toolkit-${version}-mac-${arch}.${ext}
 win:
