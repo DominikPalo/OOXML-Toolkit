@@ -5,6 +5,10 @@ All notable changes to this project are documented here. Each release is publish
 
 ## Unreleased
 
+- **Changed:** the macOS builds are signed with a Developer ID certificate and notarized by Apple, so they
+  open without the one-time “Open Anyway” confirmation. The release workflow fails if the signing or
+  notarization secrets are missing.
+
 ## 0.3.0 — 2026-10-07
 
 - **Added:** OpenDocument packages (`.odt`, `.ods`, `.odp`, templates, …) are first-class citizens.

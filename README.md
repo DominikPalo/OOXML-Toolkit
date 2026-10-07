@@ -233,9 +233,15 @@ More in the [user guide](docs/guide.md).
 | `npm run demo` | Re-record `docs/demo.gif` (needs `ffmpeg`) |
 | `npm run icon` | Re-render `build/icon.png` from `build/icon.svg` |
 
-Builds are unsigned by default. To sign and notarize on macOS remove `identity: null` from
-`electron-builder.yml` and provide the usual `CSC_*` / `APPLE_*` environment variables; the CI workflow
-in `.github/workflows/ci.yml` builds all three platforms.
+The release workflow (`.github/workflows/release.yml`) builds all three platforms. Its macOS build is
+signed with a Developer ID certificate and notarized by Apple, and fails if any of these is missing from
+the repository settings. Secrets: `CSC_LINK` (the *Developer ID Application* certificate as a
+base64-encoded `.p12`), `CSC_KEY_PASSWORD` and `APPLE_APP_SPECIFIC_PASSWORD`. Variables: `APPLE_ID` and
+`APPLE_TEAM_ID`. Locally, `npm run pack` never signs. `npm run dist` signs
+with whichever code-signing identity it finds in your keychain (use a Developer ID one for anything you
+distribute) and notarizes when `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` are set; set
+`CSC_IDENTITY_AUTO_DISCOVERY=false` to build the installers unsigned. Windows and Linux builds are
+unsigned.
 
 ### Architecture
 

@@ -4,6 +4,18 @@ name: Release
 # macOS, Windows and Linux and publish them as a GitHub release.
 # "Run workflow" from the Actions tab does a dry run: it builds everything, collects the files and
 # checksums exactly like a real release, but stops before creating the release.
+#
+# The macOS build is signed with a Developer ID certificate and notarized by Apple. That needs the
+# following in the repository settings (Settings -> Secrets and variables -> Actions); the build fails up
+# front if one is missing, so an un-notarized app is never published.
+# Secrets (the sensitive values):
+#   CSC_LINK                     the "Developer ID Application" certificate exported as .p12, base64-encoded
+#                                (`base64 -i certificate.p12 | pbcopy`)
+#   CSC_KEY_PASSWORD             the password the .p12 was exported with
+#   APPLE_APP_SPECIFIC_PASSWORD  an app-specific password for the Apple ID (appleid.apple.com)
+# Variables (plain, not sensitive):
+#   APPLE_ID                     the Apple ID e-mail of the developer account
+#   APPLE_TEAM_ID                the 10-character team ID (developer.apple.com -> Membership details)
 on:
   push:
     tags: ['v*.*.*']
@@ -27,8 +39,30 @@ jobs:
           - { name: Windows, os: windows-latest, args: '--win --x64' }
           - { name: Linux, os: ubuntu-24.04, args: '--linux --x64' }
     runs-on: ${{ matrix.os }}
+    # Notarization waits for Apple; do not let a stuck submission hold the runner for the default 6 hours.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+
+      - name: Check the macOS signing and notarization secrets
+        if: runner.os == 'macOS'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          # electron-builder silently skips signing or notarizing when these are unset. Fail here instead
+          # of shipping an app that macOS will block.
+          missing=()
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets or variables for macOS signing and notarization: ${missing[*]} (see the comment at the top of release.yml)"
+            exit 1
+          fi
 
       - uses: actions/setup-node@v7
         with:
@@ -49,24 +83,43 @@ jobs:
       - run: npm test
 
       - name: Build installers
+        if: runner.os != 'macOS'
         run: npm run dist -- ${{ matrix.args }} --publish never
         env:
+          # CSC_LINK would also be used to sign the Windows build, so the macOS secrets stay out of here.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - name: Verify the macOS code signatures
+      - name: Build, sign and notarize the macOS installers
+        if: runner.os == 'macOS'
+        # Each app is submitted to Apple's notary service and stapled; this takes a few minutes per architecture.
+        run: npm run dist -- ${{ matrix.args }} --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+
+      - name: Verify the macOS signatures and notarization
         if: runner.os == 'macOS'
         run: |
-          # An invalid signature makes macOS report the downloaded app as "damaged". Fail the release
-          # instead of shipping that.
+          # An invalid signature makes macOS report the downloaded app as "damaged", and a missing
+          # notarization ticket makes it refuse to open the app. Fail the release instead of shipping that.
+          count=0
           for dmg in release/*.dmg; do
             echo "Checking $dmg"
             mnt=$(mktemp -d)
             hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg" > /dev/null
-            codesign --verify --deep --strict -vv "$mnt/OOXML Toolkit.app"
-            status=$?
+            app="$mnt/OOXML Toolkit.app"
+            status=0
+            codesign --verify --deep --strict -vv "$app" &&
+              xcrun stapler validate "$app" &&
+              spctl --assess --type execute -vv "$app" || status=$?
             hdiutil detach "$mnt" > /dev/null
             [ $status -eq 0 ] || exit $status
+            count=$((count + 1))
           done
+          [ $count -gt 0 ] || { echo "::error::No .dmg files found in release/"; exit 1; }
 
       - uses: actions/upload-artifact@v7
         with:
