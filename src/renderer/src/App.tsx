@@ -4,6 +4,7 @@ import { host } from './host';
 import { activeTab, setState, useApp } from './store/app';
 import {
   dispatchCommand,
+  isDirty,
   openDropped,
   openPath,
   requestWindowClose,
@@ -57,20 +58,16 @@ function useTheme(): void {
   }, [theme]);
 }
 
-/** Number of documents with unsaved changes (re-evaluated whenever any model changes). */
+/** Number of documents with unsaved changes (re-evaluated whenever any model or draft changes). */
 function useDirtyCount(): number {
   const tabs = useApp((s) => s.tabs);
-  const draftTab = useInspectorDraft((s) => s.pending?.tabId);
   return useSyncExternalStore(
     (cb) => {
       const offs = tabs.flatMap((t) => (t.kind === 'doc' ? [t.model.subscribe(cb)] : []));
+      offs.push(useInspectorDraft.subscribe(cb));
       return () => offs.forEach((off) => off());
     },
-    () =>
-      tabs.reduce(
-        (n, t) => n + (t.kind === 'doc' && (t.model.isDirty() || t.id === draftTab) ? 1 : 0),
-        0,
-      ),
+    () => tabs.reduce((n, t) => n + (isDirty(t) ? 1 : 0), 0),
   );
 }
 

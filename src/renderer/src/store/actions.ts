@@ -42,7 +42,7 @@ import type {
   TreeMode,
 } from './types';
 import type { SessionState } from './persist';
-import { commitInspectorDraft } from './inspectorDraft';
+import { commitInspectorDraft, hasInspectorDraft } from './inspectorDraft';
 
 let idSeq = 1;
 const newId = (prefix: string): string => `${prefix}-${idSeq++}-${Date.now().toString(36)}`;
@@ -210,8 +210,9 @@ export function cycleTab(direction: 1 | -1): void {
   selectTab(tabs[(i + direction + tabs.length) % tabs.length].id);
 }
 
+/** Unsaved changes, including an Inspector field that has not been committed to the model yet. */
 export function isDirty(tab: Tab): boolean {
-  return tab.kind === 'doc' && tab.model.isDirty();
+  return tab.kind === 'doc' && (tab.model.isDirty() || hasInspectorDraft(tab.id));
 }
 
 export async function closeTab(id: string, options: { force?: boolean } = {}): Promise<boolean> {
@@ -231,10 +232,6 @@ export async function closeTab(id: string, options: { force?: boolean } = {}): P
     });
     if (choice === 'cancel') return false;
     if (choice === 'save' && !(await saveTab(id))) return false;
-    if (choice === 'save') {
-      commitInspectorDraft(id);
-      if (tab.model.isDirty()) return false;
-    }
   }
   setState((s) => {
     const tabs = s.tabs.filter((t) => t.id !== id);
@@ -249,7 +246,7 @@ export async function closeTab(id: string, options: { force?: boolean } = {}): P
 }
 
 export function dirtyDocs(): DocTab[] {
-  return getState().tabs.filter((t): t is DocTab => t.kind === 'doc' && t.model.isDirty());
+  return getState().tabs.filter((t): t is DocTab => t.kind === 'doc' && isDirty(t));
 }
 
 /** Window close: ask what to do with unsaved documents, then close. */
@@ -271,11 +268,7 @@ export async function requestWindowClose(): Promise<void> {
     ],
   });
   if (choice === 'cancel') return;
-  if (choice === 'save') {
-    for (const d of dirty) if (!(await saveTab(d.id))) return;
-    commitInspectorDraft();
-    if (dirtyDocs().length) return;
-  }
+  if (choice === 'save') for (const d of dirty) if (!(await saveTab(d.id))) return;
   host.forceClose();
 }
 
@@ -332,6 +325,8 @@ export async function saveTab(id: string): Promise<boolean> {
     tab.model.rebase(bytes, savedVersion);
     touchHistorySize(fileKey(tab), bytes.length);
     toast('success', `Saved ${tab.name}`);
+    // Input typed while writing is not in the file: report the document as still unsaved.
+    commitInspectorDraft(id);
     return !tab.model.isDirty();
   } catch (e) {
     toastError('Save failed: ', e);
@@ -373,6 +368,7 @@ export async function saveTabAs(id: string): Promise<boolean> {
       }));
     }
     toast('success', host.kind === 'web' ? `Downloaded ${result.name}` : `Saved ${result.name}`);
+    commitInspectorDraft(id);
     return !tab.model.isDirty();
   } catch (e) {
     toastError('Save failed: ', e);
@@ -1090,6 +1086,10 @@ export function findInPart(): void {
 }
 
 export function dispatchCommand(command: string, arg?: string): void {
+  // Menu accelerators leave the focused Inspector field alone, so flush it before any command reads
+  // the model. Undo / redo / find act on the field itself.
+  if (command !== COMMANDS.undo.id && command !== COMMANDS.redo.id && command !== COMMANDS.find.id)
+    commitInspectorDraft();
   const tab = activeTab();
   const doc = activeDoc();
   switch (command) {

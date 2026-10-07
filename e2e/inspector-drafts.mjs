@@ -6,6 +6,11 @@ import { join, resolve } from 'node:path';
 import { zipSync, unzipSync } from 'fflate';
 import assert from 'node:assert/strict';
 
+setTimeout(() => {
+  console.error('\nTimed out after 90s');
+  process.exit(1);
+}, 90_000).unref();
+
 const work = mkdtempSync(join(tmpdir(), 'ooxml-inspector-'));
 const file = join(work, 'draft.zip');
 writeFileSync(
@@ -45,6 +50,7 @@ try {
   await command('file.save');
   await page.locator('.tab.active .tab-close:not(.dirty)').waitFor();
   assert.match(saved(), /status="saved"/);
+  assert.ok(await attr.evaluate((el) => el === document.activeElement), 'Save keeps the focus');
   console.log('Inspector attribute saved without blur');
 
   await attr.fill('cancelled');
@@ -74,18 +80,7 @@ try {
 
   await text.fill('native close draft');
   await page.locator('.tab.active .tab-close.dirty').waitFor();
-  // On macOS this also waits for the dirty state to reach the main process.
-  if (process.platform === 'darwin') {
-    for (let i = 0; i < 50; i++) {
-      if (
-        await app.evaluate(({ BrowserWindow }) =>
-          BrowserWindow.getAllWindows()[0].isDocumentEdited(),
-        )
-      )
-        break;
-      await page.waitForTimeout(20);
-    }
-  }
+  // No wait for the dirty state to reach the main process: it always asks the renderer.
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   assert.equal(await text.inputValue(), 'native close draft');

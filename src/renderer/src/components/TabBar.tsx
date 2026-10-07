@@ -1,7 +1,13 @@
 import type { ReactNode } from 'react';
 import { FileDiff, GitCompare, Plus, X } from 'lucide-react';
 import { getAnalysis, useApp, useModelVersion } from '../store/app';
-import { closeTab, compareWithFile, openFilesFromDialog, selectTab } from '../store/actions';
+import {
+  closeTab,
+  compareWithFile,
+  isDirty,
+  openFilesFromDialog,
+  selectTab,
+} from '../store/actions';
 import { host } from '../host';
 import { useInspectorDraft } from '../store/inspectorDraft';
 import type { CompareTab, DocTab } from '../store/types';
@@ -46,14 +52,14 @@ function TabShell({ id, name, title, active, dirty, icon }: ShellProps) {
 
 function DocTabItem({ tab, active }: { tab: DocTab; active: boolean }) {
   useModelVersion(tab.model); // re-render when the document becomes dirty / clean
-  const hasDraft = useInspectorDraft((s) => s.pending?.tabId === tab.id);
+  useInspectorDraft((s) => s.pending?.tabId === tab.id); // ...or when a draft starts / ends
   return (
     <TabShell
       id={tab.id}
       name={tab.name}
       title={tab.path ?? tab.name}
       active={active}
-      dirty={tab.model.isDirty() || hasDraft}
+      dirty={isDirty(tab)}
       icon={<DocBadge family={getAnalysis(tab.model).type.family} size={16} />}
     />
   );

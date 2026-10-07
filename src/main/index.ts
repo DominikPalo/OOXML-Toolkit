@@ -18,7 +18,6 @@ import { storageGet, storageSet } from './store';
 let mainWindow: BrowserWindow | null = null;
 let rendererReady = false;
 let pendingPaths: string[] = [];
-let dirtyCount = 0;
 let forceClose = false;
 let recent: string[] = [];
 
@@ -144,7 +143,9 @@ function createWindow(): void {
   };
   win.on('close', (e) => {
     saveState();
-    if (dirtyCount > 0 && !forceClose) {
+    // Always let the renderer decide: it knows about input that has not reached the dirty state
+    // mirrored here yet. A renderer that cannot answer must not keep the window open.
+    if (rendererReady && !forceClose && !win.webContents.isCrashed()) {
       e.preventDefault();
       win.webContents.send(IPC.evCloseRequested);
     }
@@ -194,7 +195,6 @@ function registerIpc(): void {
 
   ipcMain.on(IPC.setWindowState, (e, s: { title: string; path?: string; dirtyCount: number }) => {
     const win = windowOf(e);
-    dirtyCount = s.dirtyCount;
     if (!win) return;
     win.setTitle(s.title);
     if (process.platform === 'darwin') {

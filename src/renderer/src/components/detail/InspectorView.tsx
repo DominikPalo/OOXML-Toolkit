@@ -17,7 +17,6 @@ import {
   moveElement,
   removeAttribute,
   setAttribute,
-  setElementText,
 } from '@core/xml/edit';
 import {
   elementAtPath,
@@ -25,7 +24,6 @@ import {
   lookupNamespace,
   textContent,
   xpathOf,
-  type XmlAttr,
   type XmlElement,
 } from '@core/xml/parser';
 import { navigate, toggleBookmark } from '../../store/actions';
@@ -34,9 +32,27 @@ import { mutateElement } from '../../lib/edits';
 import { copyText } from '../../lib/clipboard';
 import { useApp, useModelVersion } from '../../store/app';
 import type { DocTab } from '../../store/types';
-import { commitInspectorDraft, setInspectorDraft } from '../../store/inspectorDraft';
+import {
+  clearInspectorDraft,
+  commitInspectorDraft,
+  hasInspectorDraft,
+  setInspectorDraft,
+} from '../../store/inspectorDraft';
 
 const ATTR_NAME = /^[A-Za-z_:][\w:.-]*$/;
+
+/**
+ * The inputs are uncontrolled and keep their identity across commits (so focus, caret and the
+ * field's undo history survive a Save). Follow the model when it changes under them (undo, another
+ * element) unless the user is mid-edit.
+ */
+function followModel(
+  field: HTMLInputElement | HTMLTextAreaElement | null,
+  value: string,
+  tabId: string,
+): void {
+  if (field && field.value !== value && !hasInspectorDraft(tabId)) field.value = value;
+}
 
 /** Attribute / text editor for the selected element. All edits are text splices on the part. */
 export function InspectorView({ tab }: { tab: DocTab }) {
@@ -76,10 +92,6 @@ export function InspectorView({ tab }: { tab: DocTab }) {
 
   const childCounts = new Map<string, number>();
   for (const c of el.elements) childCounts.set(c.name, (childCounts.get(c.name) ?? 0) + 1);
-
-  const commitAttr = (a: XmlAttr, value: string): void => {
-    if (value !== a.value) apply(`Set ${a.name}`, (d, e) => setAttribute(d, e, a.name, value));
-  };
 
   const addAttr = (): void => {
     const name = newName.trim();
@@ -208,29 +220,33 @@ export function InspectorView({ tab }: { tab: DocTab }) {
           <table className="grid">
             <tbody>
               {attrs.map((a) => (
-                <tr key={`${a.name}=${a.value}`}>
+                <tr key={a.name}>
                   <td className="mono attr-name">{a.name}</td>
                   <td className="attr-value">
                     <input
+                      ref={(field) => followModel(field, a.value, tab.id)}
                       className="input mono"
                       defaultValue={a.value}
                       readOnly={!editable}
                       spellCheck={false}
                       onChange={(e) => {
                         const value = e.currentTarget.value;
-                        setInspectorDraft(
-                          tab.id,
-                          `attribute:${a.name}`,
-                          value !== a.value ? () => commitAttr(a, value) : null,
-                        );
+                        if (value === a.value) clearInspectorDraft(tab.id, a.name);
+                        else
+                          setInspectorDraft({
+                            tabId: tab.id,
+                            part,
+                            path,
+                            attr: a.name,
+                            value,
+                            label: `Set ${a.name}`,
+                          });
                       }}
-                      onBlur={(e) => {
-                        setInspectorDraft(tab.id, `attribute:${a.name}`, null);
-                        commitAttr(a, e.currentTarget.value);
-                      }}
+                      onBlur={() => commitInspectorDraft(tab.id)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') e.currentTarget.blur();
                         if (e.key === 'Escape') {
+                          clearInspectorDraft(tab.id, a.name);
                           e.currentTarget.value = a.value;
                           e.currentTarget.blur();
                         }
@@ -301,13 +317,12 @@ export function InspectorView({ tab }: { tab: DocTab }) {
         <h3>Content</h3>
         {leaf ? (
           <TextContent
-            key={text}
             tabId={tab.id}
+            part={part}
+            path={path}
+            label={`Edit text of ${el.name}`}
             text={text}
             editable={editable}
-            onCommit={(value) =>
-              apply(`Edit text of ${el.name}`, (d, e) => setElementText(d, e, value))
-            }
           />
         ) : (
           <ChildSummary el={el} counts={childCounts} />
@@ -319,17 +334,22 @@ export function InspectorView({ tab }: { tab: DocTab }) {
 
 function TextContent({
   tabId,
+  part,
+  path,
+  label,
   text,
   editable,
-  onCommit,
 }: {
   tabId: string;
+  part: string;
+  path: readonly number[];
+  label: string;
   text: string;
   editable: boolean;
-  onCommit: (value: string) => void;
 }) {
   return (
     <textarea
+      ref={(field) => followModel(field, text, tabId)}
       className="input mono text-area"
       defaultValue={text}
       readOnly={!editable}
@@ -338,12 +358,10 @@ function TextContent({
       placeholder="(empty)"
       onChange={(e) => {
         const value = e.currentTarget.value;
-        setInspectorDraft(tabId, 'text', value !== text ? () => onCommit(value) : null);
+        if (value === text) clearInspectorDraft(tabId, null);
+        else setInspectorDraft({ tabId, part, path, attr: null, value, label });
       }}
-      onBlur={(e) => {
-        setInspectorDraft(tabId, 'text', null);
-        if (e.currentTarget.value !== text) onCommit(e.currentTarget.value);
-      }}
+      onBlur={() => commitInspectorDraft(tabId)}
     />
   );
 }
