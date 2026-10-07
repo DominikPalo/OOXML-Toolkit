@@ -5,10 +5,17 @@ All notable changes to this project are documented here. Each release is publish
 
 ## Unreleased
 
+## 0.4.0 — 2026-10-07
+
+- **Added:** a **Save** button in the tab bar, next to Compare. It runs the same command as `⌘S` / `Ctrl+S`
+  (Inspector drafts are committed first and the malformed-XML check still applies) and is enabled while
+  the active document has unsaved changes. Its arrow opens a menu with **Save** and **Save As…**;
+  Save As… also works on an unmodified document, so a clean file can be copied.
 - **Added:** when another program (PowerPoint, Word, a sync client, …) modifies a file that is open, a
   warning bar offers to reload it and the tab shows a ⚠. Saving over such a file asks before
   overwriting the other changes, and **File → Reload from Disk** re-reads the file at any time
   (keeping the selection; unsaved edits are discarded after asking).
+- Docs: the README intro mentions the OpenDocument formats; the screenshots and the demo show the Save button.
 
 ## 0.3.0 — 2026-10-07
 
