@@ -1,6 +1,6 @@
 /** Open Packaging Conventions: content types, relationships, package family detection. */
 import type { PartSource } from './model';
-import { decodeEntities, tryParseXml } from '../xml/parser';
+import { decodeEntities, tryParseXml, type XmlDocument } from '../xml/parser';
 
 export const CONTENT_TYPES_PART = '[Content_Types].xml';
 export const PACKAGE_RELS_PART = '_rels/.rels';
@@ -22,10 +22,31 @@ export function parseContentTypes(xml: string): ContentTypes {
       if (ext) out.defaults.set(ext.toLowerCase(), ct);
     } else if (el.local === 'Override') {
       const pn = el.attrs.find((a) => a.name === 'PartName')?.value;
-      if (pn) out.overrides.set(pn.replace(/^\//, ''), ct);
+      if (pn) out.overrides.set(partNameOfUri(pn), ct);
     }
   }
   return out;
+}
+
+/**
+ * Point the `Override` for part `from` at part `to`, as a text splice of `doc.source`.
+ * `undefined` when `[Content_Types].xml` has no override for `from`.
+ */
+export function renameOverride(doc: XmlDocument, from: string, to: string): string | undefined {
+  for (const el of doc.root.elements) {
+    if (el.local !== 'Override') continue;
+    const pn = el.attrs.find((a) => a.name === 'PartName');
+    if (!pn || partNameOfUri(pn.value) !== from) continue;
+    return (
+      doc.source.slice(0, pn.valueStart) + '/' + encodePartUri(to) + doc.source.slice(pn.valueEnd)
+    );
+  }
+  return undefined;
+}
+
+/** The part name a `PartName` URI refers to: no leading slash, percent-escapes decoded. */
+function partNameOfUri(uri: string): string {
+  return safeDecode(uri.replace(/^\//, ''));
 }
 
 export function contentTypeOf(types: ContentTypes, partName: string): string | undefined {

@@ -5,13 +5,16 @@ import {
   analyzePackage,
   contentTypeOf,
   encodePartUri,
+  parseContentTypes,
   parseRelationships,
   partNameProblem,
   relativeTarget,
   relsPartFor,
+  renameOverride,
   resolveTarget,
   sourceOfRels,
 } from '@core/package/opc';
+import { parseXml } from '@core/xml/parser';
 import { buildFolderTree } from '@core/package/tree';
 import { partKind } from '@core/package/kinds';
 import { validatePackage } from '@core/package/validate';
@@ -40,6 +43,90 @@ describe('opc helpers', () => {
     expect(resolveTarget('', 'word/document.xml')).toBe('word/document.xml');
     expect(resolveTarget('xl/workbook.xml', 'my%20sheet.xml')).toBe('xl/my sheet.xml');
     expect(resolveTarget('a/b.xml', 'c.xml#frag')).toBe('a/c.xml');
+  });
+});
+
+describe('content type part names', () => {
+  const CT = 'application/x-test';
+  const typesXml = (...partNames: string[]) =>
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    partNames.map((p) => `<Override PartName="${p}" ContentType="${CT}"/>`).join('') +
+    '</Types>';
+  const rename = (xml: string, from: string, to: string) => renameOverride(parseXml(xml), from, to);
+
+  it('matches a percent-encoded PartName to the real part name', () => {
+    const types = parseContentTypes(typesXml('/xl/embeddings/Dokument%20Word.docx'));
+    expect([...types.overrides.keys()]).toEqual(['xl/embeddings/Dokument Word.docx']);
+    expect(contentTypeOf(types, 'xl/embeddings/Dokument Word.docx')).toBe(CT);
+  });
+
+  it('encodes the PartName it writes on rename', () => {
+    const text = rename(
+      typesXml('/ppt/slides/slide1.xml'),
+      'ppt/slides/slide1.xml',
+      'ppt/slides/my slide.xml',
+    );
+    expect(text).toBe(typesXml('/ppt/slides/my%20slide.xml'));
+  });
+
+  it('round-trips names with spaces, % and non-ASCII characters', () => {
+    const next = 'xl/embeddings/Dokument 100% čeština.docx';
+    const text = rename(typesXml('/xl/embeddings/old.docx'), 'xl/embeddings/old.docx', next)!;
+    expect(text).toContain('PartName="/xl/embeddings/Dokument%20100%25%20%C4%8De%C5%A1tina.docx"');
+    const types = parseContentTypes(text);
+    expect([...types.overrides.keys()]).toEqual([next]);
+    expect(contentTypeOf(types, next)).toBe(CT);
+    // ...and back again, now that the existing PartName is encoded.
+    const back = rename(text, next, 'xl/embeddings/old.docx');
+    expect(back).toBe(typesXml('/xl/embeddings/old.docx'));
+  });
+
+  it('still finds an unencoded PartName written by another tool', () => {
+    const text = rename(
+      typesXml('/ppt/slides/my slide.xml', '/ppt/slides/slide2.xml'),
+      'ppt/slides/my slide.xml',
+      'ppt/slides/other.xml',
+    );
+    expect(text).toBe(typesXml('/ppt/slides/other.xml', '/ppt/slides/slide2.xml'));
+  });
+
+  it('only touches the matching PartName and leaves the rest of the source alone', () => {
+    const xml =
+      '<?xml version="1.0"?>\n<Types xmlns="x">\n  <Override ContentType="a" PartName="/a%20b.xml" />\n' +
+      '  <Override PartName="/c.xml" ContentType="b"/>\n</Types>';
+    expect(rename(xml, 'a b.xml', 'd.xml')).toBe(xml.replace('/a%20b.xml', '/d.xml'));
+    expect(rename(xml, 'missing.xml', 'd.xml')).toBeUndefined();
+    expect(rename('<Types/>', 'a.xml', 'b.xml')).toBeUndefined();
+  });
+
+  it('does not throw on malformed percent sequences', () => {
+    const bad = ['/a/100%.xml', '/a/%E0%A4%A.xml', '/a/%zz.xml', '/a/%.xml'];
+    const types = parseContentTypes(typesXml(...bad));
+    // Not decodable: kept as written (minus the leading slash).
+    expect([...types.overrides.keys()]).toEqual(bad.map((p) => p.slice(1)));
+    expect(contentTypeOf(types, 'a/100%.xml')).toBe(CT);
+    const text = rename(typesXml(...bad), 'a/%zz.xml', 'a/b.xml');
+    expect(text).toBe(typesXml('/a/100%.xml', '/a/%E0%A4%A.xml', '/a/b.xml', '/a/%.xml'));
+  });
+
+  it('does not report a false missing content type for an encoded override', async () => {
+    const m = PackageModel.open(buildXlsx());
+    m.addPart('xl/embeddings/Dokument Word.docx', 'x');
+    m.setText(
+      '[Content_Types].xml',
+      m
+        .getText('[Content_Types].xml')
+        .text.replace(
+          '</Types>',
+          `<Override PartName="/xl/embeddings/Dokument%20Word.docx" ContentType="${CT}"/></Types>`,
+        ),
+    );
+    const codes = (await validatePackage(m)).map((p) => p.code);
+    expect(codes).not.toContain('no-content-type');
+    expect(codes).not.toContain('override-missing');
+    expect(contentTypeOf(analyzePackage(m).contentTypes, 'xl/embeddings/Dokument Word.docx')).toBe(
+      CT,
+    );
   });
 });
 

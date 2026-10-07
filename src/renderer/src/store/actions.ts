@@ -1,7 +1,13 @@
 /** Application behaviour: everything the UI can ask for lives here, never inside components. */
 import { PackageModel, type PartSource } from '@core/package/model';
 import { baseName, extensionOf, partKind } from '@core/package/kinds';
-import { contentTypeOf, encodePartUri, partNameProblem, relativeTarget } from '@core/package/opc';
+import {
+  contentTypeOf,
+  encodePartUri,
+  partNameProblem,
+  relativeTarget,
+  renameOverride,
+} from '@core/package/opc';
 import { validatePackage } from '@core/package/validate';
 import { comparePackages, type DiffStatus } from '@core/compare/compare';
 import { formatXml, minifyXml } from '@core/xml/format';
@@ -767,21 +773,12 @@ export async function renamePart(id: string, part: string): Promise<void> {
     const ct = tab.model.has('[Content_Types].xml')
       ? tab.model.getXml('[Content_Types].xml').doc
       : undefined;
-    const ov = ct?.root.elements.find(
-      (e) =>
-        e.local === 'Override' &&
-        e.attrs.some((a) => a.name === 'PartName' && a.value.replace(/^\//, '') === part),
-    );
-    const pn = ov?.attrs.find((a) => a.name === 'PartName');
-    if (ct && pn) {
-      tab.model.setText(
-        '[Content_Types].xml',
-        ct.source.slice(0, pn.valueStart) + '/' + next + ct.source.slice(pn.valueEnd),
-        {
-          label: 'Update content types',
-          coalesceKey: undefined,
-        },
-      );
+    const text = ct && renameOverride(ct, part, next);
+    if (text !== undefined) {
+      tab.model.setText('[Content_Types].xml', text, {
+        label: 'Update content types',
+        coalesceKey: undefined,
+      });
     }
   });
   navigate(id, { part: next }, { record: false });
