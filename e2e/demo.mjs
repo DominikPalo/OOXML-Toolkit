@@ -181,7 +181,7 @@ await click(page.locator('.result-hit').first(), { steps: 18, pause: 1200 });
 
 // ---- 6. compare -------------------------------------------------------------------------------------
 await caption('Compare two versions side by side');
-await click(page.locator('.tabbar-actions .btn-ghost'), { steps: 24, pause: 500 });
+await click(page.getByRole('button', { name: /^Compare$/ }), { steps: 24, pause: 500 });
 await page.waitForSelector('.compare-setup');
 const selects = page.locator('.side-picker select');
 await selects.nth(0).selectOption({ label: 'sample.docx' });
@@ -206,7 +206,9 @@ await sleep(1900);
 await caption('');
 await sleep(400);
 
-// Leave nothing unsaved so the window can close, then finalise the video.
+// Leave nothing unsaved so the window can close, then finalise the video. Closing always goes through
+// the renderer, which cancels the quit; on macOS the app then outlives its last window, so quit again.
+await app.evaluate(({ app }) => app.on('window-all-closed', () => app.quit()));
 await app.close();
 const webm = readdirSync(videoDir)
   .filter((f) => f.endsWith('.webm'))

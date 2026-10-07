@@ -507,7 +507,21 @@ body.resizing .resize-handle {
 .tabbar-actions {
   display: flex;
   align-items: center;
+  gap: 4px;
   padding: 0 10px;
+}
+.split-btn {
+  display: flex;
+  align-items: center;
+}
+.split-btn .btn-ghost:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.split-btn .split-more {
+  padding: 0 4px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 .doc-badge {
   display: inline-grid;
@@ -2238,6 +2252,7 @@ body.resizing .resize-handle {
 }
 .ctx {
   position: fixed;
+  -webkit-app-region: no-drag;
   z-index: 200;
   min-width: 200px;
   padding: 4px;
