@@ -1,15 +1,10 @@
 /** Application behaviour: everything the UI can ask for lives here, never inside components. */
 import { PackageModel, type PartSource } from '@core/package/model';
 import { baseName, extensionOf, partKind } from '@core/package/kinds';
-import {
-  contentTypeOf,
-  encodePartUri,
-  partNameProblem,
-  relativeTarget,
-  renameOverride,
-} from '@core/package/opc';
-import { ODF_MANIFEST_PART, manifestWithEntry, manifestWithRenamedEntry } from '@core/package/odf';
+import { contentTypeOf, partNameProblem } from '@core/package/opc';
+import { ODF_MANIFEST_PART, manifestWithEntry } from '@core/package/odf';
 import { validatePackage } from '@core/package/validate';
+import { renamePackagePart } from '@core/package/rename';
 import { comparePackages, type DiffStatus } from '@core/compare/compare';
 import { formatXml, minifyXml } from '@core/xml/format';
 import { elementAtPath, elementPath, resolveSimpleXPath, xpathOf } from '@core/xml/parser';
@@ -753,66 +748,12 @@ export async function renamePart(id: string, part: string): Promise<void> {
   });
   const next = name?.trim().replace(/^\//, '');
   if (!next || next === part) return;
-  const analysis = getAnalysis(tab.model);
-  tab.model.transaction(`Rename ${part}`, () => {
-    tab.model.renamePart(part, next);
-    // Fix relationship targets (`Target` is relative to the source part) and the content-type override.
-    const byRels = new Map<string, Array<{ id: string; source: string }>>();
-    for (const r of analysis.incoming.get(part) ?? []) {
-      const list = byRels.get(r.relsPart) ?? [];
-      list.push({ id: r.id, source: r.source });
-      byRels.set(r.relsPart, list);
-    }
-    for (const [relsPart, items] of byRels) {
-      const { doc } = tab.model.getXml(relsPart);
-      if (!doc) continue;
-      const edits = [];
-      for (const it of items) {
-        const el = doc.root.elements.find((e) =>
-          e.attrs.some((a) => a.name === 'Id' && a.value === it.id),
-        );
-        const target = el?.attrs.find((a) => a.name === 'Target');
-        if (!el || !target) continue;
-        const value = encodePartUri(
-          target.value.startsWith('/') ? '/' + next : relativeTarget(it.source, next),
-        );
-        edits.push({
-          from: target.valueStart,
-          to: target.valueEnd,
-          insert: value.replace(/&/g, '&amp;').replace(/"/g, '&quot;'),
-        });
-      }
-      if (edits.length) {
-        const sorted = edits.sort((a, b) => b.from - a.from);
-        let text = doc.source;
-        for (const e of sorted) text = text.slice(0, e.from) + e.insert + text.slice(e.to);
-        tab.model.setText(relsPart, text, {
-          label: `Update relationships in ${relsPart}`,
-          coalesceKey: undefined,
-        });
-      }
-    }
-    if (analysis.type.family === 'odf' && tab.model.has(ODF_MANIFEST_PART)) {
-      const manifest = tab.model.getText(ODF_MANIFEST_PART).text;
-      const updated = manifestWithRenamedEntry(manifest, part, next);
-      if (updated && updated !== manifest) {
-        tab.model.setText(ODF_MANIFEST_PART, updated, {
-          label: 'Update manifest',
-          coalesceKey: undefined,
-        });
-      }
-    }
-    const ct = tab.model.has('[Content_Types].xml')
-      ? tab.model.getXml('[Content_Types].xml').doc
-      : undefined;
-    const text = ct && renameOverride(ct, part, next);
-    if (text !== undefined) {
-      tab.model.setText('[Content_Types].xml', text, {
-        label: 'Update content types',
-        coalesceKey: undefined,
-      });
-    }
-  });
+  try {
+    renamePackagePart(tab.model, part, next);
+  } catch (e) {
+    toastError('Rename failed: ', e);
+    return;
+  }
   navigate(id, { part: next }, { record: false });
 }
 
