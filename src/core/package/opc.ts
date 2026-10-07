@@ -313,7 +313,12 @@ export function analyzePackage(src: PartSource, structureVersion = 0): PackageAn
     if (hit) type = hit[1];
     else type = { family: 'unknown', label: 'Open Packaging Conventions package' };
   } else if (nameSet.has('mimetype')) {
-    const mime = src.getText('mimetype').text.trim();
+    let mime = '';
+    try {
+      mime = src.getText('mimetype').text.trim();
+    } catch {
+      // Unreadable: still an ODF package; the package check reports the damaged entry.
+    }
     type = ODF_TYPES[mime] ?? { family: 'odf', label: 'OpenDocument package' };
   } else if (nameSet.has('META-INF/manifest.xml')) {
     // An ODF manifest without a `mimetype` entry: still ODF, and the package check will say what is missing.

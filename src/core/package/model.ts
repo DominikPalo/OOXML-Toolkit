@@ -131,6 +131,15 @@ export class PackageModel implements PartSource {
     return out;
   }
 
+  /** Every entry — directories included — in the order `serialize()` writes them. */
+  entryOrder(): string[] {
+    const out: string[] = [];
+    for (const e of this.archive.entries)
+      if (this.overlay.get(e.name)?.kind !== 'absent') out.push(e.name);
+    for (const n of this.added) out.push(n);
+    return out;
+  }
+
   has(name: string): boolean {
     const o = this.overlay.get(name);
     if (o) return o.kind !== 'absent';

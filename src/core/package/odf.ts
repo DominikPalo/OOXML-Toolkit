@@ -18,15 +18,27 @@ import {
   elementPath,
   escapeAttr,
   getAttrLocal,
+  lookupNamespace,
   textContent,
   tryParseXml,
   type XmlDocument,
+  type XmlElement,
 } from '../xml/parser';
 
 export const ODF_MIMETYPE_PART = 'mimetype';
 export const ODF_MANIFEST_PART = 'META-INF/manifest.xml';
 export const ODF_META_PART = 'meta.xml';
 export const ODF_CONTENT_PART = 'content.xml';
+const MANIFEST_NS = 'urn:oasis:names:tc:opendocument:xmlns:manifest:1.0';
+
+/** A part's text, or `undefined` if it cannot be read (corrupt data); the package check says so. */
+function tryText(src: PartSource, name: string): string | undefined {
+  try {
+    return src.getText(name).text;
+  } catch {
+    return undefined;
+  }
+}
 
 // ---------------------------------------------------------------------------------------------
 // Manifest
@@ -74,10 +86,10 @@ export function parseManifest(text: string): Manifest | undefined {
   return { rootMediaType, entries, doc };
 }
 
+/** The parsed manifest; `undefined` if it is absent, unreadable or not a manifest. */
 export function readManifest(src: PartSource): Manifest | undefined {
-  return src.has(ODF_MANIFEST_PART)
-    ? parseManifest(src.getText(ODF_MANIFEST_PART).text)
-    : undefined;
+  const text = src.has(ODF_MANIFEST_PART) ? tryText(src, ODF_MANIFEST_PART) : undefined;
+  return text === undefined ? undefined : parseManifest(text);
 }
 
 const MEDIA_TYPES: Record<string, string> = {
@@ -109,9 +121,33 @@ export function manifestWithEntry(
   const m = parseManifest(text);
   if (!m) return undefined;
   if (m.entries.some((e) => e.fullPath === fullPath)) return text;
-  const prefix = m.doc.root.prefix || 'manifest';
-  const fragment = `<${prefix}:file-entry ${prefix}:full-path="${escapeAttr(fullPath)}" ${prefix}:media-type="${escapeAttr(mediaType)}"/>`;
-  return applyEdits(text, [insertFragment(m.doc, m.doc.root, 'lastChild', fragment)]);
+  const root = m.doc.root;
+  // Elements take the root's prefix (none when the manifest namespace is the default one), but
+  // attributes always need a prefix bound to the manifest namespace — declare one if there is none.
+  const element = root.prefix ? `${root.prefix}:file-entry` : 'file-entry';
+  const bound = manifestAttributePrefix(root);
+  const prefix = bound ?? freePrefix(root);
+  const declaration = bound === undefined ? ` xmlns:${prefix}="${MANIFEST_NS}"` : '';
+  const fragment =
+    `<${element}${declaration} ${prefix}:full-path="${escapeAttr(fullPath)}" ` +
+    `${prefix}:media-type="${escapeAttr(mediaType)}"/>`;
+  return applyEdits(text, [insertFragment(m.doc, root, 'lastChild', fragment)]);
+}
+
+/** A prefix that is bound to the manifest namespace where new entries are inserted. */
+function manifestAttributePrefix(root: XmlElement): string | undefined {
+  const declared = root.attrs
+    .filter((a) => a.name.startsWith('xmlns:') && a.value === MANIFEST_NS)
+    .map((a) => a.name.slice('xmlns:'.length));
+  return declared.includes(root.prefix) ? root.prefix : declared[0];
+}
+
+/** `manifest`, or a variation of it that is not bound to some other namespace. */
+function freePrefix(root: XmlElement): string {
+  for (let i = 0; ; i++) {
+    const candidate = i === 0 ? 'manifest' : `manifest${i}`;
+    if (lookupNamespace(root, candidate) === undefined) return candidate;
+  }
 }
 
 /** The manifest with the entry `from` renamed to `to` (unchanged if there is no such entry). */
@@ -173,8 +209,9 @@ const USER_TYPES: Record<string, string> = {
 };
 
 export function readOdfMeta(src: PartSource): OdfMeta | undefined {
-  if (!src.has(ODF_META_PART)) return undefined;
-  const doc = tryParseXml(src.getText(ODF_META_PART).text).doc;
+  const metaText = src.has(ODF_META_PART) ? tryText(src, ODF_META_PART) : undefined;
+  if (metaText === undefined) return undefined;
+  const doc = tryParseXml(metaText).doc;
   const meta = doc && child(doc.root, 'meta');
   if (!doc || !meta) return undefined;
 
@@ -292,6 +329,8 @@ export function odfOverviewRows(meta: OdfMeta, extension?: string): OdfOverviewR
 
 interface ModelLike extends PartSource {
   entryInfo?(name: string): { method: number } | undefined;
+  /** All entries including directories, in the order they are written. */
+  entryOrder?(): string[];
 }
 
 /** Rules specific to ODF packages. */
@@ -309,7 +348,8 @@ export function checkOdfPackage(model: ModelLike): Problem[] {
       message: 'The package has no "mimetype" entry, which identifies the document type.',
     });
   } else {
-    const position = names.indexOf(ODF_MIMETYPE_PART) + 1;
+    // Directory entries count: `mimetype` has to precede them as well.
+    const position = (model.entryOrder?.() ?? names).indexOf(ODF_MIMETYPE_PART) + 1;
     if (position !== 1) {
       problems.push({
         severity: 'error',
@@ -327,7 +367,17 @@ export function checkOdfPackage(model: ModelLike): Problem[] {
         part: ODF_MIMETYPE_PART,
       });
     }
-    const mime = model.getText(ODF_MIMETYPE_PART).text;
+    let mime = '';
+    try {
+      mime = model.getText(ODF_MIMETYPE_PART).text;
+    } catch (e) {
+      problems.push({
+        severity: 'error',
+        code: 'unreadable',
+        message: `Cannot read part: ${(e as Error).message}`,
+        part: ODF_MIMETYPE_PART,
+      });
+    }
     if (mime !== mime.trim()) {
       problems.push({
         severity: 'warning',
@@ -354,7 +404,20 @@ export function checkOdfPackage(model: ModelLike): Problem[] {
       code: 'odf-no-manifest',
       message: `The package has no ${ODF_MANIFEST_PART}, the list of its parts.`,
     });
-  } else if (manifest) {
+  } else if (!manifest) {
+    // Unreadable or not well-formed manifests are reported with the other XML parts; this is the
+    // case of well-formed XML that is not a manifest.
+    const text = tryText(model, ODF_MANIFEST_PART);
+    const root = text === undefined ? undefined : tryParseXml(text).doc?.root;
+    if (root) {
+      problems.push({
+        severity: 'error',
+        code: 'odf-manifest-invalid',
+        message: `${ODF_MANIFEST_PART} is not an ODF manifest: its root element is <${root.name}>, not <manifest:manifest>.`,
+        part: ODF_MANIFEST_PART,
+      });
+    }
+  } else {
     const listed = new Set<string>();
     for (const e of manifest.entries) {
       if (e.isDirectory) continue;

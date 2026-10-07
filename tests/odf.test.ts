@@ -11,8 +11,9 @@ import {
   readOdfMeta,
 } from '@core/package/odf';
 import { partKind } from '@core/package/kinds';
+import { lookupNamespace, tryParseXml } from '@core/xml/parser';
 import { validatePackage } from '@core/package/validate';
-import { ZipArchive, writeZip } from '@core/zip/zip';
+import { ZipArchive, writeZip, type ZipWriteItem } from '@core/zip/zip';
 import { buildDocx, buildOdp, zipFiles } from './fixtures/builders';
 
 const MIME = 'application/vnd.oasis.opendocument.presentation';
@@ -133,6 +134,55 @@ describe('manifest', () => {
     expect(paths).toContain('Pictures/logo.png');
     expect(paths).not.toContain('Pictures/image1.png');
     expect(manifestWithRenamedEntry(before, 'nope.xml', 'x.xml')).toBe(before);
+  });
+});
+
+describe('adding a manifest entry keeps the file well-formed and namespaced', () => {
+  const NS = 'urn:oasis:names:tc:opendocument:xmlns:manifest:1.0';
+  const added = (xml: string): string => manifestWithEntry(xml, 'Pictures/new.png')!;
+
+  /** Namespace of the attributes of the entry that was added. */
+  function attributeNamespaces(xml: string): (string | undefined)[] {
+    const doc = tryParseXml(xml).doc;
+    expect(doc, 'the result must be well-formed').toBeDefined();
+    const entry = doc!.root.elements.find((e) =>
+      e.attrs.some((a) => a.value === 'Pictures/new.png'),
+    );
+    expect(entry).toBeDefined();
+    return entry!.attrs
+      .filter((a) => !a.name.startsWith('xmlns'))
+      .map((a) => lookupNamespace(entry!, a.name.slice(0, a.name.indexOf(':'))));
+  }
+
+  it('with the usual manifest: prefix', () => {
+    const out = added(
+      `<manifest:manifest xmlns:manifest="${NS}" manifest:version="1.2">` +
+        '<manifest:file-entry manifest:full-path="/" manifest:media-type="x"/></manifest:manifest>',
+    );
+    expect(out).toContain('<manifest:file-entry manifest:full-path="Pictures/new.png"');
+    expect(attributeNamespaces(out)).toEqual([NS, NS]);
+  });
+
+  it('when the manifest namespace is the default one and another prefix is bound to it', () => {
+    const out = added(
+      `<manifest xmlns="${NS}" xmlns:m="${NS}" m:version="1.2">` +
+        '<file-entry m:full-path="/" m:media-type="x"/></manifest>',
+    );
+    expect(out).toContain('<file-entry m:full-path="Pictures/new.png"');
+    expect(out).not.toContain('xmlns:manifest=');
+    expect(attributeNamespaces(out)).toEqual([NS, NS]);
+  });
+
+  it('when the manifest namespace is only the default one: declares a prefix for the attributes', () => {
+    const out = added(`<manifest xmlns="${NS}"><file-entry/></manifest>`);
+    expect(out).toContain(`<file-entry xmlns:manifest="${NS}" manifest:full-path=`);
+    expect(attributeNamespaces(out)).toEqual([NS, NS]);
+  });
+
+  it('does not reuse a prefix that is bound to something else', () => {
+    const out = added(`<manifest xmlns="${NS}" xmlns:manifest="urn:other"/>`);
+    expect(out).toContain(`xmlns:manifest1="${NS}" manifest1:full-path=`);
+    expect(attributeNamespaces(out)).toEqual([NS, NS]);
   });
 });
 
@@ -326,5 +376,112 @@ describe('saving ODF', () => {
 
   it('a package freshly written by the fixtures has a stored, first mimetype', () => {
     expect(ZipArchive.open(buildOdp()).entries[0]).toMatchObject({ name: 'mimetype', method: 0 });
+  });
+});
+
+describe('ODF package check on damaged packages', () => {
+  const enc = new TextEncoder();
+  const MANIFEST = 'META-INF/manifest.xml';
+
+  type DataItem = Extract<ZipWriteItem, { kind: 'data' }>;
+
+  /** The fixture's entries, with `change` applied to each. */
+  function repack(change: (item: DataItem) => DataItem | undefined): Uint8Array {
+    const zip = ZipArchive.open(buildOdp());
+    const items: DataItem[] = [];
+    for (const e of zip.entries) {
+      const item: DataItem = { kind: 'data', name: e.name, data: zip.read(e) };
+      const changed = change(item);
+      if (changed) items.push(changed);
+    }
+    return writeZip(items);
+  }
+
+  it('reports a manifest that is XML but not a manifest', () => {
+    const m = PackageModel.open(
+      repack((i) => (i.name === MANIFEST ? { ...i, data: enc.encode('<other/>') } : i)),
+    );
+    expect(checkOdfPackage(m).find((p) => p.code === 'odf-manifest-invalid')).toMatchObject({
+      severity: 'error',
+      part: MANIFEST,
+      message: expect.stringContaining('<other>'),
+    });
+    expect(codes(m)).not.toContain('odf-no-manifest');
+  });
+
+  it('leaves a manifest that is not well-formed to the XML check', () => {
+    const m = PackageModel.open(
+      repack((i) => (i.name === MANIFEST ? { ...i, data: enc.encode('<manifest') } : i)),
+    );
+    expect(codes(m)).not.toContain('odf-manifest-invalid');
+  });
+
+  it('requires mimetype to precede directory entries too', () => {
+    const items: ZipWriteItem[] = [
+      { kind: 'data', name: 'META-INF/', data: new Uint8Array() },
+      ...ZipArchive.open(buildOdp()).entries.map((e): ZipWriteItem => ({
+        kind: 'data',
+        name: e.name,
+        data: ZipArchive.open(buildOdp()).read(e),
+      })),
+    ];
+    const m = PackageModel.open(writeZip(items));
+    // part names alone would put mimetype first; the archive does not
+    expect(m.names()[0]).toBe('mimetype');
+    expect(checkOdfPackage(m).find((p) => p.code === 'odf-mimetype-order')).toMatchObject({
+      message: expect.stringContaining('entry 2'),
+    });
+  });
+
+  it('takes the order from what will be written, after edits', () => {
+    const m = PackageModel.open(repack((i) => (i.name === 'mimetype' ? undefined : i)));
+    expect(codes(m)).toContain('odf-no-mimetype');
+    m.addPart('mimetype', enc.encode(MIME)); // appended: it would be written last
+    expect(m.entryOrder().at(-1)).toBe('mimetype');
+    expect(codes(m)).toContain('odf-mimetype-order');
+    expect(codes(m)).not.toContain('odf-no-mimetype');
+  });
+
+  it('keeps mimetype in place when it is removed and put back', () => {
+    const m = PackageModel.open(buildOdp());
+    m.removePart('mimetype');
+    m.addPart('mimetype', enc.encode(MIME));
+    expect(m.entryOrder()[0]).toBe('mimetype');
+    expect(codes(m)).not.toContain('odf-mimetype-order');
+    expect(ZipArchive.open(m.serialize()).entries[0].name).toBe('mimetype');
+  });
+
+  /** Flip a byte of the payload of `name`, which is stored uncompressed so that only its CRC fails. */
+  function corrupt(name: string): Uint8Array {
+    const data = repack((i) => (i.name === name ? { ...i, method: 0 } : i));
+    const entry = ZipArchive.open(data).get(name)!;
+    expect(entry.method).toBe(0);
+    const nameLength = new TextEncoder().encode(name).length;
+    data[entry.localOffset + 30 + nameLength] ^= 0xff; // 30-byte local header, then the name
+    return data;
+  }
+
+  it('still analyses and checks a package whose mimetype is corrupt', () => {
+    const m = PackageModel.open(corrupt('mimetype'));
+    expect(() => analyzePackage(m)).not.toThrow();
+    expect(analyzePackage(m).type.family).toBe('odf');
+    expect(checkOdfPackage(m).find((p) => p.code === 'unreadable')).toMatchObject({
+      part: 'mimetype',
+    });
+  });
+
+  it.each([MANIFEST, 'meta.xml'])('can still be opened when %s is corrupt', async (name) => {
+    const m = PackageModel.open(corrupt(name));
+    expect(() => m.getText(name)).toThrow(/CRC/);
+    // every reader the UI uses on opening must survive it
+    expect(() => analyzePackage(m)).not.toThrow();
+    expect(analyzePackage(m).type.family).toBe('odf');
+    expect(readOdfMeta(m) === undefined).toBe(name === 'meta.xml');
+    expect(() => checkOdfPackage(m)).not.toThrow();
+    // ... and the package check names the damaged part instead of failing
+    const problems = await validatePackage(m);
+    expect(problems.find((p) => p.code === 'unreadable')).toMatchObject({ part: name });
+    if (name === MANIFEST)
+      expect(analyzePackage(m).contentTypes.overrides.has('content.xml')).toBe(false);
   });
 });

@@ -300,8 +300,8 @@ For OpenDocument files the check applies the ODF packaging rules instead:
 
 | Severity | Finding |
 | --- | --- |
-| Error | `mimetype` is missing, is not the first entry, or is compressed |
-| Error | `META-INF/manifest.xml` is missing, or lists a file that is not in the package |
+| Error | `mimetype` is missing, is not the first entry (folder entries count), or is compressed |
+| Error | `META-INF/manifest.xml` is missing, is not a manifest, or lists a file that is not in the package |
 | Warning | `mimetype` has trailing whitespace or disagrees with the manifest; a file is not listed in the manifest; no `content.xml` |
 | Info | Encrypted entries (listed, but their content cannot be read) |
 
