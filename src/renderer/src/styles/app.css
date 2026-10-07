@@ -507,6 +507,7 @@ body.resizing .resize-handle {
 .tabbar-actions {
   display: flex;
   align-items: center;
+  gap: 4px;
   padding: 0 10px;
 }
 .doc-badge {

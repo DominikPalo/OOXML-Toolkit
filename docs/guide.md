@@ -47,7 +47,7 @@ Each file gets its own tab. A dot in place of the ✕ means the document has uns
 
 | # | Area | What it does |
 | --- | --- | --- |
-| 1 | **Tabs** | One per open document or comparison. Middle-click or ✕ closes; the **Compare** button starts a comparison. |
+| 1 | **Tabs** | One per open document or comparison. Middle-click or ✕ closes; the **Save** button (enabled while the document has unsaved changes) saves it and the **Compare** button starts a comparison. |
 | 2 | **Activity bar** | Switches the side bar between *Explorer*, *Search*, *Bookmarks*, *Recent files* and *Package check*. The moon / sun toggles the theme, the cog opens settings. Clicking the active icon hides the side bar (`⌘B` / `Ctrl+B`). |
 | 3 | **Tree toolbar** | **Parts** ⇄ **Relations** mode, back / forward through your selection history, collapse all. |
 | 4 | **Tree** | The package: folders, parts and XML elements. See [The tree](#3-the-tree). |
@@ -212,7 +212,7 @@ packages (e.g. a workbook embedded in a document) can be opened in their own tab
 
 ## 6. Saving and undo
 
-- **Save** (`⌘S` / `Ctrl+S`) writes the file in place, atomically (temporary file + rename).
+- **Save** (the button in the tab bar, `⌘S` / `Ctrl+S`) writes the file in place, atomically (temporary file + rename).
   **Save As…** writes a copy and the tab continues with the new file.
 - Only changed parts are re-compressed; every other entry is copied byte-for-byte from the original.
   Saving without edits reproduces the same entries.

@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
-import { FileDiff, GitCompare, Plus, X } from 'lucide-react';
+import { FileDiff, GitCompare, Plus, Save, X } from 'lucide-react';
 import { getAnalysis, useApp, useModelVersion } from '../store/app';
 import {
   closeTab,
   compareWithFile,
+  dispatchCommand,
   isDirty,
   openFilesFromDialog,
   selectTab,
 } from '../store/actions';
+import { COMMANDS } from '@shared/commands';
 import { host } from '../host';
 import { useInspectorDraft } from '../store/inspectorDraft';
 import type { CompareTab, DocTab } from '../store/types';
@@ -78,9 +80,27 @@ function CompareTabItem({ tab, active }: { tab: CompareTab; active: boolean }) {
   );
 }
 
+/** Same path as File → Save (⌘S), so Inspector drafts are committed first. */
+function SaveButton({ tab }: { tab: DocTab }) {
+  useModelVersion(tab.model);
+  useInspectorDraft((s) => s.pending?.tabId === tab.id);
+  const dirty = isDirty(tab);
+  return (
+    <button
+      className="btn-ghost"
+      onClick={() => dispatchCommand(COMMANDS.save.id)}
+      disabled={!dirty}
+      title={dirty ? 'Save (Ctrl/Cmd+S)' : 'No unsaved changes'}
+    >
+      <Save size={15} /> Save
+    </button>
+  );
+}
+
 export function TabBar() {
   const tabs = useApp((s) => s.tabs);
   const activeId = useApp((s) => s.activeId);
+  const activeDoc = tabs.find((t): t is DocTab => t.id === activeId && t.kind === 'doc');
 
   return (
     <header className={`tabbar ${host.os === 'darwin' ? 'mac-inset' : ''}`}>
@@ -102,6 +122,7 @@ export function TabBar() {
         </button>
       </div>
       <div className="tabbar-actions">
+        {activeDoc && <SaveButton tab={activeDoc} />}
         <button
           className="btn-ghost"
           onClick={() => void compareWithFile()}

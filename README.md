@@ -66,7 +66,7 @@ The screenshots below were taken from the real app using the files in [`samples/
 
 | | |
 | --- | --- |
-| **1** Tabs — open documents and comparisons (a dot means unsaved changes) | **6** Detail tabs — which ones appear depends on what is selected |
+| **1** Tabs — open documents and comparisons (a dot means unsaved changes), Save and Compare buttons | **6** Detail tabs — which ones appear depends on what is selected |
 | **2** Activity bar — Explorer, Search, Bookmarks, Recent files, Package check | **7** Editor toolbar — validity, pretty-printing, format, wrap, find |
 | **3** Tree mode (Parts / Relations), back / forward, collapse all | **8** Source editor, with the selected element highlighted |
 | **4** The tree: folders → parts → XML elements | **9** XPath of the caret and *Locate in tree* |
