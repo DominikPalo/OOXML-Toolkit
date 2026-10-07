@@ -10,6 +10,7 @@ import {
   restoreSession,
 } from './store/actions';
 import { loadPersisted, startPersisting } from './store/persist';
+import { useInspectorDraft } from './store/inspectorDraft';
 import { ActivityBar, Sidebar } from './components/sidebar/Sidebar';
 import { TabBar } from './components/TabBar';
 import { StatusBar } from './components/StatusBar';
@@ -59,12 +60,17 @@ function useTheme(): void {
 /** Number of documents with unsaved changes (re-evaluated whenever any model changes). */
 function useDirtyCount(): number {
   const tabs = useApp((s) => s.tabs);
+  const draftTab = useInspectorDraft((s) => s.pending?.tabId);
   return useSyncExternalStore(
     (cb) => {
       const offs = tabs.flatMap((t) => (t.kind === 'doc' ? [t.model.subscribe(cb)] : []));
       return () => offs.forEach((off) => off());
     },
-    () => tabs.reduce((n, t) => n + (t.kind === 'doc' && t.model.isDirty() ? 1 : 0), 0),
+    () =>
+      tabs.reduce(
+        (n, t) => n + (t.kind === 'doc' && (t.model.isDirty() || t.id === draftTab) ? 1 : 0),
+        0,
+      ),
   );
 }
 

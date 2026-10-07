@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -34,12 +34,14 @@ import { mutateElement } from '../../lib/edits';
 import { copyText } from '../../lib/clipboard';
 import { useApp, useModelVersion } from '../../store/app';
 import type { DocTab } from '../../store/types';
+import { commitInspectorDraft, setInspectorDraft } from '../../store/inspectorDraft';
 
 const ATTR_NAME = /^[A-Za-z_:][\w:.-]*$/;
 
 /** Attribute / text editor for the selected element. All edits are text splices on the part. */
 export function InspectorView({ tab }: { tab: DocTab }) {
   useModelVersion(tab.model);
+  useEffect(() => () => commitInspectorDraft(tab.id), [tab.id]);
   const bookmarks = useApp((s) => s.bookmarks);
   const part = tab.selection.part!;
   const path = tab.selection.path!;
@@ -214,7 +216,18 @@ export function InspectorView({ tab }: { tab: DocTab }) {
                       defaultValue={a.value}
                       readOnly={!editable}
                       spellCheck={false}
-                      onBlur={(e) => commitAttr(a, e.currentTarget.value)}
+                      onChange={(e) => {
+                        const value = e.currentTarget.value;
+                        setInspectorDraft(
+                          tab.id,
+                          `attribute:${a.name}`,
+                          value !== a.value ? () => commitAttr(a, value) : null,
+                        );
+                      }}
+                      onBlur={(e) => {
+                        setInspectorDraft(tab.id, `attribute:${a.name}`, null);
+                        commitAttr(a, e.currentTarget.value);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') e.currentTarget.blur();
                         if (e.key === 'Escape') {
@@ -289,6 +302,7 @@ export function InspectorView({ tab }: { tab: DocTab }) {
         {leaf ? (
           <TextContent
             key={text}
+            tabId={tab.id}
             text={text}
             editable={editable}
             onCommit={(value) =>
@@ -304,10 +318,12 @@ export function InspectorView({ tab }: { tab: DocTab }) {
 }
 
 function TextContent({
+  tabId,
   text,
   editable,
   onCommit,
 }: {
+  tabId: string;
   text: string;
   editable: boolean;
   onCommit: (value: string) => void;
@@ -320,7 +336,14 @@ function TextContent({
       rows={Math.min(10, Math.max(2, text.split('\n').length))}
       spellCheck={false}
       placeholder="(empty)"
-      onBlur={(e) => e.currentTarget.value !== text && onCommit(e.currentTarget.value)}
+      onChange={(e) => {
+        const value = e.currentTarget.value;
+        setInspectorDraft(tabId, 'text', value !== text ? () => onCommit(value) : null);
+      }}
+      onBlur={(e) => {
+        setInspectorDraft(tabId, 'text', null);
+        if (e.currentTarget.value !== text) onCommit(e.currentTarget.value);
+      }}
     />
   );
 }
