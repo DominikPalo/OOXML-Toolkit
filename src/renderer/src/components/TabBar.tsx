@@ -83,7 +83,11 @@ export function TabBar() {
   const activeId = useApp((s) => s.activeId);
 
   return (
-    <header className={`tabbar ${host.os === 'darwin' ? 'mac-inset' : ''}`}>
+    <header
+      className={`tabbar ${host.os === 'darwin' ? 'mac-inset' : ''}`}
+      // Tauri ignores `-webkit-app-region`; tabs and buttons are excluded automatically.
+      data-tauri-drag-region={host.kind === 'tauri' && host.os === 'darwin' ? 'deep' : undefined}
+    >
       <div className="tabs" role="tablist">
         {tabs.map((t) =>
           t.kind === 'doc' ? (

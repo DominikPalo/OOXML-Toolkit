@@ -70,7 +70,7 @@ export function HistoryList({
               >
                 {h.pinned ? <PinOff size={13} /> : <Pin size={13} />}
               </button>
-              {h.path && host.kind === 'electron' && (
+              {h.path && host.kind !== 'web' && (
                 <button
                   className="icon-btn"
                   onClick={(e) => {
