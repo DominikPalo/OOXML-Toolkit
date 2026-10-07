@@ -2,6 +2,7 @@
 import { BrowserWindow, dialog, shell } from 'electron';
 import { constants, promises as fs } from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import {
   OPEN_FILTERS,
   type FileFilter,
@@ -12,6 +13,7 @@ import {
 import { storageGet } from './store';
 
 const approved = new Set<string>();
+const writes = new Map<string, Promise<void>>();
 
 export const approve = (p: string): void => {
   approved.add(path.resolve(p));
@@ -68,6 +70,21 @@ export async function writeFile(
   options?: { backup?: boolean },
 ): Promise<void> {
   const target = assertApproved(p);
+  const run = (): Promise<void> => writeApprovedFile(target, data, options);
+  const next = (writes.get(target) ?? Promise.resolve()).then(run, run);
+  writes.set(target, next);
+  try {
+    await next;
+  } finally {
+    if (writes.get(target) === next) writes.delete(target);
+  }
+}
+
+async function writeApprovedFile(
+  target: string,
+  data: Uint8Array,
+  options?: { backup?: boolean },
+): Promise<void> {
   let mode: number | undefined;
   try {
     mode = (await fs.stat(target)).mode;
@@ -75,9 +92,12 @@ export async function writeFile(
   } catch {
     /* new file */
   }
-  const tmp = path.join(path.dirname(target), `.${path.basename(target)}.${process.pid}.tmp`);
+  const tmp = path.join(
+    path.dirname(target),
+    `.${path.basename(target)}.${process.pid}.${randomUUID()}.tmp`,
+  );
   try {
-    await fs.writeFile(tmp, data, { mode });
+    await fs.writeFile(tmp, data, { mode, flag: 'wx' });
     await fs.rename(tmp, target);
   } catch (e) {
     await fs.rm(tmp, { force: true }).catch(() => undefined);
