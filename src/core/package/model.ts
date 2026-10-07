@@ -485,26 +485,52 @@ export class PackageModel implements PartSource {
    * Treat `data` (the bytes just written to disk) as the new baseline. Undo history stays valid:
    * snapshots that referred to the old original are converted to concrete content first.
    */
-  rebase(data: Uint8Array): void {
+  rebase(data: Uint8Array, savedVersion = this.version): void {
     const old = this.archive;
+    const saved = ZipArchive.open(data);
     const concrete = (name: string, s: PartSnapshot): PartSnapshot => {
       if (s.kind !== 'original') return s;
       const e = old.get(name);
       return e ? { kind: 'bytes', data: old.read(e) } : { kind: 'absent' };
     };
+    // A save may finish after more edits (or undo/redo). Retain the live state of
+    // every part that differs from either archive before replacing the baseline.
+    const pending = new Map<string, PartSnapshot>();
+    if (this.version !== savedVersion) {
+      const names = new Set([
+        ...old.entries.filter((e) => !e.isDirectory).map((e) => e.name),
+        ...saved.entries.filter((e) => !e.isDirectory).map((e) => e.name),
+        ...this.overlay.keys(),
+      ]);
+      for (const name of names) {
+        const before = old.get(name);
+        const after = saved.get(name);
+        if (
+          !this.overlay.has(name) &&
+          before &&
+          after &&
+          before.method === after.method &&
+          before.size === after.size &&
+          bytesEqual(old.raw(before), saved.raw(after))
+        )
+          continue;
+        pending.set(name, concrete(name, this.snapshot(name)));
+      }
+    }
     for (const entry of [...this.undoStack, ...this.redoStack]) {
       for (const c of entry.changes) {
         c.before = concrete(c.part, c.before);
         c.after = concrete(c.part, c.after);
       }
     }
-    this.archive = ZipArchive.open(data);
+    this.archive = saved;
     this.overlay.clear();
     this.added = [];
     this.bytesCache.clear();
     this.bytesCacheSize = 0;
     this.textCache.clear();
     this.xmlCache.clear();
+    for (const [name, snapshot] of pending) this.put(name, snapshot);
     this.changed(true);
   }
 

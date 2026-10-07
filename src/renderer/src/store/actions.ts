@@ -313,12 +313,13 @@ export async function saveTab(id: string): Promise<boolean> {
   }
   if (!(await confirmMalformed(tab))) return false;
   try {
+    const savedVersion = tab.model.version;
     const bytes = tab.model.serialize();
     await host.writeFile(tab.path, bytes, { backup: getState().settings.backupOnSave });
-    tab.model.rebase(bytes);
+    tab.model.rebase(bytes, savedVersion);
     touchHistorySize(fileKey(tab), bytes.length);
     toast('success', `Saved ${tab.name}`);
-    return true;
+    return !tab.model.isDirty();
   } catch (e) {
     toastError('Save failed: ', e);
     return false;
@@ -330,10 +331,11 @@ export async function saveTabAs(id: string): Promise<boolean> {
   if (!tab) return false;
   if (tab.model.isDirty() && !(await confirmMalformed(tab))) return false;
   try {
+    const savedVersion = tab.model.version;
     const bytes = tab.model.serialize();
     const result = await host.saveAs(tab.name, bytes, saveFilters(tab.name));
     if (!result) return false;
-    tab.model.rebase(bytes);
+    tab.model.rebase(bytes, savedVersion);
     const oldKey = fileKey(tab);
     updateDoc(id, { name: result.name, path: result.path ?? tab.path });
     if (result.path) {
@@ -357,7 +359,7 @@ export async function saveTabAs(id: string): Promise<boolean> {
       }));
     }
     toast('success', host.kind === 'web' ? `Downloaded ${result.name}` : `Saved ${result.name}`);
-    return true;
+    return !tab.model.isDirty();
   } catch (e) {
     toastError('Save failed: ', e);
     return false;
