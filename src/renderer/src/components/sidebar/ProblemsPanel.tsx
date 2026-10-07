@@ -1,7 +1,8 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, Play, RefreshCw } from 'lucide-react';
 import type { Problem } from '@core/package/validate';
+import { packageCheckSummary } from '@core/package/odf';
 import { navigate, revealInSource, runValidation } from '../../store/actions';
-import { useModelVersion } from '../../store/app';
+import { getAnalysis, useModelVersion } from '../../store/app';
 import type { DocTab } from '../../store/types';
 
 const ICON = {
@@ -36,10 +37,7 @@ export function ProblemsPanel({ tab }: { tab: DocTab }) {
       {problems.status === 'idle' && (
         <div className="empty-panel">
           <p>Validate the package structure.</p>
-          <p className="muted small">
-            Finds malformed XML, dangling relationships, parts without a content type and
-            unreferenced parts.
-          </p>
+          <p className="muted small">{packageCheckSummary(getAnalysis(tab.model).type.family)}</p>
         </div>
       )}
       {problems.status === 'running' && (

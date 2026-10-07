@@ -99,7 +99,13 @@ function PartView({ tab }: { tab: DocTab }) {
   );
   const kind = exists ? partKind(part, contentType, head) : undefined;
   const hasElement = !!tab.selection.path;
-  const tabs = tabsFor({ kind, part, hasElement, preview: previewKindOf(contentType) });
+  const tabs = tabsFor({
+    kind,
+    part,
+    hasElement,
+    preview: previewKindOf(contentType),
+    odf: analysis.type.family === 'odf',
+  });
   const active: DetailTab = tabs.includes(tab.detailTab) ? tab.detailTab : (tabs[0] ?? 'source');
   const bookmarks = useApp((s) => s.bookmarks);
   const bookmarked = !!currentBookmark(tab) && bookmarks.length > 0;
@@ -163,7 +169,9 @@ function PartView({ tab }: { tab: DocTab }) {
           {contentType ? (
             <span className="mono">{contentType}</span>
           ) : (
-            <span className="ic-error">no content type</span>
+            <span className="ic-error">
+              {analysis.type.family === 'odf' ? 'not in the manifest' : 'no content type'}
+            </span>
           )}
           <span>·</span>
           <span>{formatBytes(model.size(part))}</span>
