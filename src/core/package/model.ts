@@ -91,7 +91,7 @@ export class PackageModel implements PartSource {
 
   /** Increments on every change (including undo/redo). */
   version = 0;
-  /** Increments when parts are added/removed or `[Content_Types].xml`/`.rels` parts change. */
+  /** Increments when parts are added/removed or `[Content_Types].xml`, `.rels` or the ODF manifest change. */
   structureVersion = 0;
 
   private constructor(archive: ZipArchive, label: string) {
@@ -127,6 +127,15 @@ export class PackageModel implements PartSource {
       if (this.overlay.get(e.name)?.kind === 'absent') continue;
       out.push(e.name);
     }
+    for (const n of this.added) out.push(n);
+    return out;
+  }
+
+  /** Every entry — directories included — in the order `serialize()` writes them. */
+  entryOrder(): string[] {
+    const out: string[] = [];
+    for (const e of this.archive.entries)
+      if (this.overlay.get(e.name)?.kind !== 'absent') out.push(e.name);
     for (const n of this.added) out.push(n);
     return out;
   }
@@ -292,7 +301,10 @@ export class PackageModel implements PartSource {
   }
 
   private isStructural(name: string): boolean {
-    return name === '[Content_Types].xml' || name.endsWith('.rels');
+    // The ODF manifest plays the part of [Content_Types].xml: it types every part.
+    return (
+      name === '[Content_Types].xml' || name === 'META-INF/manifest.xml' || name.endsWith('.rels')
+    );
   }
 
   // ---- History -----------------------------------------------------------------------------

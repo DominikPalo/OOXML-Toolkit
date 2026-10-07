@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. Each release is published on the
 [releases page](https://github.com/DominikPalo/OOXML-Toolkit/releases) with its installers.
 
+## Unreleased
+
+- **Added:** OpenDocument packages (`.odt`, `.ods`, `.odp`, templates, …) are first-class citizens.
+  - The overview shows the document properties from `meta.xml` (title, author, keywords, dates, editing
+    time, custom properties, statistics).
+  - A **Manifest** view of `META-INF/manifest.xml` replaces the (empty) relationship view, including
+    missing and unlisted files, and part headers show the media type from the manifest.
+  - The package check verifies `mimetype` (first entry, stored, no trailing whitespace, matches the
+    manifest) and compares the manifest with the parts.
+  - Adding or renaming a part updates the manifest; `mimetype` is shown as text and always saved first
+    and uncompressed (previously it was deflated on save, which breaks ODF consumers).
+  - There are no slide, document or worksheet previews for OpenDocument yet.
+
 ## 0.2.0 — 2026-10-07
 
 - **Added:** EMF and WMF images can be previewed — in the image view, the slide preview and the

@@ -22,8 +22,10 @@ if (!existsSync(join(root, 'samples', 'sample.docx')))
 const work = mkdtempSync(join(tmpdir(), 'ooxml-e2e-'));
 const docPath = join(work, 'work.docx');
 const sheetPath = join(work, 'book.xlsx');
+const deckPath = join(work, 'deck.odp');
 copyFileSync(join(root, 'samples', 'sample.docx'), docPath);
 copyFileSync(join(root, 'samples', 'sample.xlsx'), sheetPath);
+copyFileSync(join(root, 'samples', 'sample.odp'), deckPath);
 const original = unzipSync(new Uint8Array(readFileSync(docPath)));
 
 const executable = process.env.OOXML_E2E_EXECUTABLE
@@ -36,6 +38,7 @@ const app = await electron.launch({
     `--user-data-dir=${join(work, 'profile')}`,
     docPath,
     sheetPath,
+    deckPath,
   ],
   env: { ...process.env, OOXML_E2E: '1', ELECTRON_ENABLE_LOGGING: '0' },
 });
@@ -51,7 +54,7 @@ const step = async (name, fn) => {
 };
 
 await step('window opens the files passed on the command line', async () => {
-  await page.waitForFunction(() => document.querySelectorAll('.tab').length === 2, undefined, {
+  await page.waitForFunction(() => document.querySelectorAll('.tab').length === 3, undefined, {
     timeout: 15000,
   });
   assert.equal(await page.evaluate(() => window.host?.kind), 'electron');
@@ -161,6 +164,21 @@ await step('review changes opens a diff', async () => {
   await page.screenshot({ path: join(shots, '03-review-changes.png') });
 });
 
+await step('an OpenDocument file shows its metadata and a manifest view', async () => {
+  await page.locator('.tab', { hasText: 'deck.odp' }).click();
+  await page.waitForSelector('.overview');
+  const overview = await page.textContent('.overview');
+  assert.match(overview, /OpenDocument presentation/);
+  assert.match(overview, /Sample Editor/); // dc:creator from meta.xml
+  assert.match(overview, /Slides/);
+  assert.match(overview, /content\.xml/); // the main part of an ODF package
+  await page.screenshot({ path: join(shots, '05-odf-overview.png') });
+  await page.getByRole('button', { name: /^Manifest$/ }).click();
+  await page.locator('.tree-row', { hasText: 'Pictures/image1.png' }).first().waitFor();
+  assert.match(await page.textContent('.tree'), /image\/png/); // media types come from the manifest
+  await page.getByRole('button', { name: /^Parts$/ }).click();
+});
+
 await step('no console errors', async () => {
   assert.deepEqual(errors, []);
 });
@@ -182,6 +200,7 @@ await step('the previous file is restored on the next start', async () => {
   await page2.waitForSelector('.tab', { timeout: 15000 });
   assert.match(await page2.textContent('.tabs'), /work\.docx/);
   assert.match(await page2.textContent('.tabs'), /book\.xlsx/);
+  assert.match(await page2.textContent('.tabs'), /deck\.odp/);
   await page2.waitForSelector('.cm-content, .part-view, .overview', { timeout: 10000 });
   await page2.screenshot({ path: join(shots, '04-restored.png') });
 });

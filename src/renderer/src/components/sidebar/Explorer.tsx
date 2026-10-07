@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ExternalLink,
   ListTree,
+  ListChecks,
   Network,
   Circle,
   Bookmark,
@@ -50,6 +51,7 @@ export function Explorer({ tab }: { tab: DocTab }) {
   const list = useRef<VirtualListHandle>(null);
   const [openMenu, menu] = useContextMenu();
   const bookmarks = useApp((s) => s.bookmarks);
+  const isOdf = getAnalysis(tab.model).type.family === 'odf';
 
   const rows = useMemo(
     () => buildRows(tab, getAnalysis(tab.model)),
@@ -339,9 +341,14 @@ export function Explorer({ tab }: { tab: DocTab }) {
           <button
             className={tab.treeMode === 'relationships' ? 'active' : ''}
             onClick={() => setTreeMode(tab.id, 'relationships')}
-            title="Relationship graph starting at the package root"
+            title={
+              isOdf
+                ? 'The parts listed in META-INF/manifest.xml, with their media types'
+                : 'Relationship graph starting at the package root'
+            }
           >
-            <Network size={13} /> Relations
+            {isOdf ? <ListChecks size={13} /> : <Network size={13} />}{' '}
+            {isOdf ? 'Manifest' : 'Relations'}
           </button>
         </div>
         <span className="spacer" />

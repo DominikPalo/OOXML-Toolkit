@@ -9,6 +9,7 @@ import {
   type Relationship,
 } from '@core/package/opc';
 import { buildFolderTree, folderLabel, type FolderNode } from '@core/package/tree';
+import { ODF_MANIFEST_PART, ODF_MIMETYPE_PART, readManifest } from '@core/package/odf';
 import { elementPath, type XmlElement } from '@core/xml/parser';
 import { elementHint, type Hint } from './describe';
 import type { DocTab } from '../store/types';
@@ -162,7 +163,86 @@ function buildPartRows(tab: DocTab, analysis: PackageAnalysis): TreeRow[] {
   return rows;
 }
 
+/** ODF has no relationships; its parts are described by META-INF/manifest.xml, so list those instead. */
+function buildManifestRows(tab: DocTab, analysis: PackageAnalysis): TreeRow[] {
+  const { model, expanded } = tab;
+  const rows: TreeRow[] = [rootRow(tab)];
+  if (!expanded.root) return rows;
+  const names = new Set(model.names());
+  const kindOf = (part: string): PartKind =>
+    partKind(part, contentTypeOf(analysis.contentTypes, part));
+
+  for (const part of [ODF_MIMETYPE_PART, ODF_MANIFEST_PART]) {
+    if (!names.has(part)) continue;
+    rows.push({
+      id: partRowId(part),
+      depth: 1,
+      kind: 'part',
+      label: part,
+      part,
+      partKind: kindOf(part),
+      status: model.status(part),
+      expandable: false,
+      expanded: false,
+    });
+  }
+
+  const listed = new Set<string>();
+  for (const entry of readManifest(model)?.entries ?? []) {
+    if (entry.isDirectory) continue;
+    listed.add(entry.fullPath);
+    const exists = names.has(entry.fullPath);
+    const media = entry.mediaType || 'no media type';
+    rows.push({
+      id: `man:${entry.fullPath}`,
+      depth: 1,
+      kind: 'rel',
+      label: entry.fullPath,
+      hint: { kind: 'attrs', text: entry.encrypted ? `${media} · encrypted` : media },
+      // A listed part that does not exist opens the manifest, where the entry is declared.
+      part: exists ? entry.fullPath : ODF_MANIFEST_PART,
+      partKind: exists ? kindOf(entry.fullPath) : undefined,
+      status: exists ? model.status(entry.fullPath) : undefined,
+      missing: !exists,
+      expandable: false,
+      expanded: false,
+    });
+  }
+
+  const unlisted = [...names]
+    .filter((n) => !listed.has(n) && n !== ODF_MIMETYPE_PART && !n.startsWith('META-INF/'))
+    .sort();
+  if (unlisted.length) {
+    const open = !!expanded.orphans;
+    rows.push({
+      id: 'orphans',
+      depth: 1,
+      kind: 'group',
+      label: `Not in manifest (${unlisted.length})`,
+      expandable: true,
+      expanded: open,
+    });
+    if (open) {
+      for (const part of unlisted) {
+        rows.push({
+          id: `orphan:${part}`,
+          depth: 2,
+          kind: 'part',
+          label: part,
+          part,
+          partKind: kindOf(part),
+          status: model.status(part),
+          expandable: false,
+          expanded: false,
+        });
+      }
+    }
+  }
+  return rows;
+}
+
 function buildRelationshipRows(tab: DocTab, analysis: PackageAnalysis): TreeRow[] {
+  if (analysis.type.family === 'odf') return buildManifestRows(tab, analysis);
   const { model, expanded } = tab;
   const rows: TreeRow[] = [rootRow(tab)];
   if (!expanded.root) return rows;

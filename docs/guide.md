@@ -35,7 +35,8 @@ There are several ways to open a document:
   and OpenDocument files). If the app is already running, the files open in the existing window.
 
 Supported: Office Open XML (`.docx .docm .dotx .xlsx .xlsm .xltx .pptx .pptm .potx .ppsx …`), Visio
-`.vsdx`, OpenDocument (`.odt .ods .odp .odg`) and any other ZIP file. Password-protected Office files and
+`.vsdx`, OpenDocument (`.odt .ods .odp .odg` and their templates — see
+[OpenDocument files](#opendocument-files)) and any other ZIP file. Password-protected Office files and
 legacy binary formats (`.doc`, `.xls`, `.ppt`) are not ZIP packages and cannot be opened.
 
 Each file gets its own tab. A dot in place of the ✕ means the document has unsaved changes.
@@ -84,6 +85,15 @@ document: `presentation.xml → slideMaster, slides, theme …`. Each row shows 
 `relationship id · type`. External links, targets that do not exist (shown in red) and cycles are marked.
 Parts that no chain of relationships reaches are collected under **Unreferenced parts**.
 
+### Manifest mode (OpenDocument)
+
+![Manifest view of an OpenDocument presentation](screenshots/odf-manifest.png)
+
+For OpenDocument packages the *Relations* button becomes **Manifest**. ODF has no relationships; the
+tree lists `mimetype`, `META-INF/manifest.xml` and then every file entry of the manifest with its media
+type. Entries that point at a file that is not in the package are shown in red, and files that exist but
+are not listed are collected under **Not in manifest**. Encrypted entries are marked.
+
 ### Context menus
 
 Right-click a row:
@@ -97,8 +107,9 @@ Right-click a row:
 
 ![Context menu for an element](screenshots/context-menu.png)
 
-*Rename* updates every relationship that targets the part and its `[Content_Types].xml` override;
-*Delete* leaves references alone on purpose (the package check will list them) and can be undone.
+*Rename* updates every relationship that targets the part and its `[Content_Types].xml` override (in an
+OpenDocument file: its entry in `META-INF/manifest.xml`); *Delete* leaves references alone on purpose
+(the package check will list them) and can be undone.
 
 ## 4. What you see for each selection
 
@@ -106,7 +117,7 @@ Right-click a row:
 | --- | --- |
 | Package (root) | **Overview** |
 | Folder | List of contents with sizes |
-| XML part | **Preview** (worksheets, the main document part, slides) · **Source** · **Relationships** · **Info** |
+| XML part | **Preview** (worksheets, the main document part, slides) · **Source** · **Relationships** (not in OpenDocument files) · **Info** |
 | `.rels` part | **Table** · **Source** · **Info** |
 | XML element | **Source** (highlighted) · **Inspector** |
 | Image | **Preview** · **Hex** · **Info** (SVG also has **Source**; EMF and WMF are previewed too) |
@@ -114,7 +125,8 @@ Right-click a row:
 | Embedded package | **Info** (with *Open as package*) · **Hex** |
 | Other binary | **Hex** · **Info** |
 
-**Overview** — part counts, largest parts, document properties (`docProps/core.xml` and `app.xml`),
+**Overview** — part counts, largest parts, document properties (`docProps/core.xml` and `app.xml`; in
+OpenDocument files `meta.xml`),
 the main part, a package-check summary and, when you have edits, the list of unsaved changes with a
 *Review changes* button.
 
@@ -140,6 +152,26 @@ point at it). Click a row to go to the other end.
 
 **Info** — content type, kind, size, compressed size, CRC-32, ZIP timestamp, text encoding, line count,
 status, who refers to the part and an on-demand SHA-256.
+
+### OpenDocument files
+
+OpenDocument packages (`.odt`, `.ods`, `.odp`, `.odg`, their templates and `.odm`) are ZIP + XML like
+OOXML, so most of the app works unchanged: tree, source editor, inspector, search, compare, bookmarks.
+What differs:
+
+![Overview of an OpenDocument presentation](screenshots/odf-overview.png)
+
+- **Overview** shows the properties from `meta.xml`: title, subject, author, last editor, keywords,
+  created / modified, language, editing cycles and time, custom properties, the generating
+  application and the document statistics (slides, sheets or pages, objects, words, …).
+- **Manifest** replaces *Relations* in the explorer (see [Manifest mode](#manifest-mode-opendocument)).
+  The main part is `content.xml`.
+- **Media types** shown for a part come from the manifest.
+- **Add / rename** keep the manifest in sync; **delete** leaves its entry (like relationships in OOXML)
+  and the package check reports it.
+- `mimetype` is shown as text and always written first and stored uncompressed.
+
+There are no slide, document or worksheet previews for OpenDocument yet.
 
 ## 5. Editing
 
@@ -173,7 +205,8 @@ prefixes, attribute order, whitespace — is left exactly as it was.
 
 ### Parts
 
-Add a file as a new part (a `Default` content type is added for new extensions), replace a part's
+Add a file as a new part (a `Default` content type is added for new extensions; in an OpenDocument file
+a `file-entry` is added to the manifest), replace a part's
 content with a file, export a part, rename or delete it — from the tree's context menu. Embedded
 packages (e.g. a workbook embedded in a document) can be opened in their own tab.
 
@@ -194,6 +227,9 @@ packages (e.g. a workbook embedded in a document) can be opened in their own tab
 with your edits:
 
 ![Reviewing unsaved changes](screenshots/review-changes.png)
+
+OpenDocument files keep their `mimetype` entry first and uncompressed when saved — a requirement of the
+format that many generic ZIP tools get wrong.
 
 In the browser build (`npm run dev:web`) *Save* downloads the file.
 
@@ -259,6 +295,17 @@ or *Browse…*. Unsaved edits of open documents are included.
 | Error | Missing `[Content_Types].xml` or `_rels/.rels`, duplicate relationship ids, names differing only by case |
 | Warning | Part without a content type; content-type override for a missing part; relationships for a missing part; no main document |
 | Info | Part not referenced by any relationship |
+
+For OpenDocument files the check applies the ODF packaging rules instead:
+
+| Severity | Finding |
+| --- | --- |
+| Error | `mimetype` is missing, is not the first entry (folder entries count), or is compressed |
+| Error | `META-INF/manifest.xml` is missing, is not a manifest, or lists a file that is not in the package |
+| Warning | `mimetype` has trailing whitespace or disagrees with the manifest; a file is not listed in the manifest; no `content.xml` |
+| Info | Encrypted entries (listed, but their content cannot be read) |
+
+Parts that are not well-formed XML are reported for every kind of package.
 
 The check looks at the package structure, not at ECMA-376 schema validity. Results are marked
 *outdated* when the package has changed since the check ran.

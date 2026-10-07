@@ -8,6 +8,7 @@ import {
   contentTypeOf,
   sourceOfRels,
 } from './opc';
+import { checkOdfPackage } from './odf';
 import { XmlParseError } from '../xml/parser';
 
 export type Severity = 'error' | 'warning' | 'info';
@@ -187,6 +188,8 @@ export async function validatePackage(
       });
     }
   }
+
+  if (analysis.type.family === 'odf') problems.push(...checkOdfPackage(model));
 
   const order = { error: 0, warning: 1, info: 2 } as const;
   return problems.sort((a, b) => order[a.severity] - order[b.severity]);

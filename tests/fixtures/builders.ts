@@ -317,3 +317,113 @@ export function buildPptx(opts: PptxOptions = {}): Uint8Array {
   });
   return zipFiles(files);
 }
+
+// ---------------------------------------------------------------------------------------------
+// ODP (OpenDocument presentation)
+// ---------------------------------------------------------------------------------------------
+
+export interface OdpOptions {
+  title?: string;
+  keywords?: string[];
+  slides?: Array<{ title: string; body: string }>;
+  userDefined?: Array<{
+    name: string;
+    value: string;
+    type?: 'float' | 'date' | 'time' | 'boolean' | 'string';
+  }>;
+}
+
+const ODF_NS =
+  'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" ' +
+  'xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" ' +
+  'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" ' +
+  'xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" ' +
+  'xmlns:presentation="urn:oasis:names:tc:opendocument:xmlns:presentation:1.0" ' +
+  'xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" ' +
+  'xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" ' +
+  'xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+  'xmlns:dc="http://purl.org/dc/elements/1.1/" ' +
+  'xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"';
+
+const xmlEsc = (v: string): string =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+/** A small but structurally faithful ODP, laid out the way LibreOffice writes one. */
+export function buildOdp(opts: OdpOptions = {}): Uint8Array {
+  const mime = 'application/vnd.oasis.opendocument.presentation';
+  const slides = opts.slides ?? [
+    { title: 'Welcome', body: 'First slide body text' },
+    { title: 'Agenda', body: 'Second slide body text' },
+  ];
+  const keywords = opts.keywords ?? [];
+  const userDefined = opts.userDefined ?? [];
+  const entry = (path: string, type: string): string =>
+    `<manifest:file-entry manifest:full-path="${path}" manifest:media-type="${type}"/>`;
+
+  const pages = slides
+    .map(
+      (s, i) =>
+        `<draw:page draw:name="page${i + 1}" draw:master-page-name="Default">` +
+        '<draw:frame presentation:class="title" svg:x="2cm" svg:y="1cm" svg:width="24cm" svg:height="3cm">' +
+        `<draw:text-box><text:p>${xmlEsc(s.title)}</text:p></draw:text-box></draw:frame>` +
+        '<draw:frame presentation:class="outline" svg:x="2cm" svg:y="5cm" svg:width="24cm" svg:height="8cm">' +
+        `<draw:text-box><text:list><text:list-item><text:p>${xmlEsc(s.body)}</text:p></text:list-item></text:list></draw:text-box></draw:frame>` +
+        (i === 0
+          ? '<draw:frame svg:x="20cm" svg:y="10cm" svg:width="4cm" svg:height="4cm"><draw:image xlink:href="Pictures/image1.png" xlink:type="simple"/></draw:frame>'
+          : '') +
+        '</draw:page>',
+    )
+    .join('');
+
+  return zipFiles({
+    // `mimetype` first: ODF requires it to be the first entry (the writer stores it uncompressed).
+    mimetype: mime,
+    'META-INF/manifest.xml':
+      DECL +
+      '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.3">' +
+      `<manifest:file-entry manifest:full-path="/" manifest:version="1.3" manifest:media-type="${mime}"/>` +
+      entry('content.xml', 'text/xml') +
+      entry('styles.xml', 'text/xml') +
+      entry('meta.xml', 'text/xml') +
+      entry('settings.xml', 'text/xml') +
+      entry('Pictures/image1.png', 'image/png') +
+      entry('Thumbnails/thumbnail.png', 'image/png') +
+      '</manifest:manifest>',
+    'content.xml':
+      DECL +
+      `<office:document-content ${ODF_NS} office:version="1.3"><office:scripts/><office:automatic-styles/>` +
+      `<office:body><office:presentation>${pages}</office:presentation></office:body></office:document-content>`,
+    'styles.xml':
+      DECL +
+      `<office:document-styles ${ODF_NS} office:version="1.3"><office:automatic-styles>` +
+      '<style:page-layout style:name="PM1"><style:page-layout-properties fo:page-width="28cm" fo:page-height="15.75cm"/></style:page-layout>' +
+      '</office:automatic-styles><office:master-styles><style:master-page style:name="Default" style:page-layout-name="PM1"/></office:master-styles></office:document-styles>',
+    'meta.xml':
+      DECL +
+      `<office:document-meta ${ODF_NS} office:version="1.3"><office:meta>` +
+      '<meta:generator>LibreOffice/7.6.2.1$MacOSX_AARCH64 LibreOffice_project/1</meta:generator>' +
+      `<dc:title>${xmlEsc(opts.title ?? 'Sample presentation')}</dc:title>` +
+      '<dc:subject>Quarterly review</dc:subject>' +
+      '<meta:initial-creator>OOXML Toolkit</meta:initial-creator>' +
+      '<meta:creation-date>2024-01-15T10:30:00.123456789</meta:creation-date>' +
+      '<dc:creator>Sample Editor</dc:creator>' +
+      '<dc:date>2024-03-02T08:15:42.5</dc:date>' +
+      '<dc:language>en-US</dc:language>' +
+      '<meta:editing-cycles>3</meta:editing-cycles>' +
+      '<meta:editing-duration>PT01H03M17S</meta:editing-duration>' +
+      keywords.map((k) => `<meta:keyword>${xmlEsc(k)}</meta:keyword>`).join('') +
+      userDefined
+        .map(
+          (u) =>
+            `<meta:user-defined meta:name="${xmlEsc(u.name)}"${u.type ? ` meta:value-type="${u.type}"` : ''}>${xmlEsc(u.value)}</meta:user-defined>`,
+        )
+        .join('') +
+      `<meta:document-statistic meta:page-count="${slides.length}" meta:object-count="${slides.length * 3}"/>` +
+      '</office:meta></office:document-meta>',
+    'settings.xml':
+      DECL +
+      `<office:document-settings ${ODF_NS} office:version="1.3"><office:settings/></office:document-settings>`,
+    'Pictures/image1.png': PNG_1X1,
+    'Thumbnails/thumbnail.png': PNG_1X1,
+  });
+}

@@ -3,6 +3,7 @@ import { CheckCircle2, FolderSearch, GitCompare, ShieldCheck, TriangleAlert } fr
 import { baseName, partKind } from '@core/package/kinds';
 import { contentTypeOf } from '@core/package/opc';
 import { formatBytes } from '@core/text';
+import { odfOverviewRows, packageCheckSummary, readOdfMeta } from '@core/package/odf';
 import { host } from '../../host';
 import { getAnalysis, useModelVersion } from '../../store/app';
 import {
@@ -38,6 +39,13 @@ const APP_FIELDS: Array<[string, string]> = [
   ['TotalTime', 'Editing time (min)'],
 ];
 
+/** ISO timestamps become readable dates; everything else is shown as it is. */
+function displayValue(text: string): string {
+  if (!/^\d{4}-\d\d-\d\dT/.test(text)) return text;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? text : formatDate(date);
+}
+
 function readProps(
   tab: DocTab,
   part: string,
@@ -54,7 +62,7 @@ function readProps(
       .slice(el.startTagEnd, el.closeStart === -1 ? el.startTagEnd : el.closeStart)
       .trim();
     if (!text) continue;
-    out.push([label, /^\d{4}-\d\d-\d\dT/.test(text) ? formatDate(new Date(text)) : text]);
+    out.push([label, displayValue(text)]);
   }
   return out;
 }
@@ -82,8 +90,15 @@ export function OverviewView({ tab }: { tab: DocTab }) {
     return { total, xml, media, largest: sizes.slice(0, 8) };
   }, [model, version, analysis]);
 
-  const core = readProps(tab, 'docProps/core.xml', CORE_FIELDS);
-  const app = readProps(tab, 'docProps/app.xml', APP_FIELDS);
+  const odf = useMemo(() => {
+    if (analysis.type.family !== 'odf') return undefined;
+    const meta = readOdfMeta(model);
+    return meta ? odfOverviewRows(meta, analysis.type.extension) : undefined;
+  }, [model, analysis, version]);
+  const core = odf
+    ? odf.properties.map(([k, v]): [string, string] => [k, displayValue(v)])
+    : readProps(tab, 'docProps/core.xml', CORE_FIELDS);
+  const app = odf ? odf.application : readProps(tab, 'docProps/app.xml', APP_FIELDS);
   const changed = model.changedParts();
   const { problems } = tab;
   const errors = problems.items.filter((p) => p.severity === 'error').length;
@@ -166,10 +181,7 @@ export function OverviewView({ tab }: { tab: DocTab }) {
         <section>
           <h3>Package check</h3>
           {problems.status === 'idle' && (
-            <p className="muted">
-              Looks for malformed XML, dangling relationships, missing content types and
-              unreferenced parts.
-            </p>
+            <p className="muted">{packageCheckSummary(analysis.type.family)}</p>
           )}
           {problems.status === 'running' && <p className="muted">Checking…</p>}
           {problems.status === 'done' && (

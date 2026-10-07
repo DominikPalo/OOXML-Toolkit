@@ -22,13 +22,20 @@ export function tabsFor(opts: {
   part: string | undefined;
   hasElement: boolean;
   preview: PreviewKind | undefined;
+  /** ODF packages have no relationships to show. */
+  odf?: boolean;
 }): DetailTab[] {
-  const { kind, part, hasElement, preview } = opts;
+  const { kind, part, hasElement, preview, odf } = opts;
   if (!part || !kind) return [];
   if (hasElement) return ['source', 'inspector'];
   switch (kind) {
     case 'xml':
-      return [...(preview ? (['preview'] as const) : []), 'source', 'relationships', 'info'];
+      return [
+        ...(preview ? (['preview'] as const) : []),
+        'source',
+        ...(odf ? [] : (['relationships'] as const)),
+        'info',
+      ];
     case 'rels':
       return ['table', 'source', 'info'];
     case 'image':

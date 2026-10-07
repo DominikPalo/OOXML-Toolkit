@@ -78,6 +78,7 @@ export function baseName(name: string): string {
 
 export function partKind(name: string, contentType?: string, head?: Uint8Array): PartKind {
   const ext = extensionOf(name);
+  if (name === 'mimetype') return 'text'; // ODF: the media type of the package
   if (ext === 'rels') return 'rels';
   if (ext === 'svg') return 'image';
   if (XML_EXT.has(ext)) return 'xml';

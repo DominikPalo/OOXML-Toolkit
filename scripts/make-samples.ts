@@ -2,7 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PackageModel } from '../src/core/package/model';
-import { buildDocx, buildPptx, buildXlsx } from '../tests/fixtures/builders';
+import { buildDocx, buildOdp, buildPptx, buildXlsx } from '../tests/fixtures/builders';
 
 const dir = join(process.cwd(), 'samples');
 mkdirSync(dir, { recursive: true });
@@ -29,6 +29,14 @@ const files: Record<string, Uint8Array> = {
     ],
   }),
   'sample-broken.docx': buildBrokenDocx(),
+  // An OpenDocument presentation, laid out the way LibreOffice writes one.
+  'sample.odp': buildOdp({
+    keywords: ['kickoff', 'quarterly review'],
+    userDefined: [
+      { name: 'Project', value: 'Atlas' },
+      { name: 'Budget', value: '1200.5', type: 'float' },
+    ],
+  }),
   'sample.xlsx': buildXlsx(),
   'sample-v2.xlsx': buildXlsx({ b2: 99, sheetName: 'Fruit & Veg' }),
   'sample.pptx': buildPptx(),

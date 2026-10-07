@@ -8,6 +8,7 @@ import {
   relativeTarget,
   renameOverride,
 } from '@core/package/opc';
+import { ODF_MANIFEST_PART, manifestWithEntry, manifestWithRenamedEntry } from '@core/package/odf';
 import { validatePackage } from '@core/package/validate';
 import { comparePackages, type DiffStatus } from '@core/compare/compare';
 import { formatXml, minifyXml } from '@core/xml/format';
@@ -390,12 +391,14 @@ export function rowIdForSelection(sel: Selection): string {
 /** Which detail tab to show after the selection changed. */
 function validDetailTab(tab: DocTab, sel: Selection): DetailTab {
   if (!sel.part) return tab.detailTab;
-  const ct = contentTypeOf(getAnalysis(tab.model).contentTypes, sel.part);
+  const analysis = getAnalysis(tab.model);
+  const ct = contentTypeOf(analysis.contentTypes, sel.part);
   const available = tabsFor({
     kind: partKind(sel.part, ct),
     part: sel.part,
     hasElement: !!sel.path,
     preview: previewKindOf(ct),
+    odf: analysis.type.family === 'odf',
   });
   if (available.includes(tab.detailTab)) return tab.detailTab;
   return available[0] ?? 'source';
@@ -665,8 +668,22 @@ export async function addPartFromFile(id: string, folder = ''): Promise<void> {
   tab.model.transaction(`Add ${partName}`, () => {
     tab.model.addPart(partName, file.data);
     ensureContentType(tab.model, partName);
+    ensureManifestEntry(tab.model, partName);
   });
   navigate(id, { part: partName }, { sidebar: true });
+}
+
+/** ODF: make sure `META-INF/manifest.xml` lists the part (Office programs ignore unlisted parts). */
+function ensureManifestEntry(model: PackageModel, partName: string): void {
+  if (getAnalysis(model).type.family !== 'odf' || !model.has(ODF_MANIFEST_PART)) return;
+  const text = model.getText(ODF_MANIFEST_PART).text;
+  const next = manifestWithEntry(text, partName);
+  if (next && next !== text) {
+    model.setText(ODF_MANIFEST_PART, next, {
+      label: `Add manifest entry for ${partName}`,
+      coalesceKey: undefined,
+    });
+  }
 }
 
 /** Make sure `[Content_Types].xml` has an entry for the part (a `Default` for its extension). */
@@ -694,11 +711,16 @@ function ensureContentType(model: PackageModel, partName: string): void {
 export async function deletePart(id: string, part: string): Promise<void> {
   const tab = docById(id);
   if (!tab) return;
-  const incoming = getAnalysis(tab.model).incoming.get(part)?.length ?? 0;
+  const analysis = getAnalysis(tab.model);
+  const incoming = analysis.incoming.get(part)?.length ?? 0;
+  const references =
+    analysis.type.family === 'odf'
+      ? 'Its entry in META-INF/manifest.xml is'
+      : 'Relationships and content-type entries that reference it are';
   const choice = await confirmDialog({
     title: `Delete “${baseName(part)}”?`,
     message:
-      'The part is removed from the package. Relationships and content-type entries that reference it are left untouched' +
+      `The part is removed from the package. ${references} left untouched` +
       (incoming
         ? ` (${incoming} relationship${incoming > 1 ? 's' : ''} point${incoming > 1 ? '' : 's'} to it).`
         : '.') +
@@ -766,6 +788,16 @@ export async function renamePart(id: string, part: string): Promise<void> {
         for (const e of sorted) text = text.slice(0, e.from) + e.insert + text.slice(e.to);
         tab.model.setText(relsPart, text, {
           label: `Update relationships in ${relsPart}`,
+          coalesceKey: undefined,
+        });
+      }
+    }
+    if (analysis.type.family === 'odf' && tab.model.has(ODF_MANIFEST_PART)) {
+      const manifest = tab.model.getText(ODF_MANIFEST_PART).text;
+      const updated = manifestWithRenamedEntry(manifest, part, next);
+      if (updated && updated !== manifest) {
+        tab.model.setText(ODF_MANIFEST_PART, updated, {
+          label: 'Update manifest',
           coalesceKey: undefined,
         });
       }
