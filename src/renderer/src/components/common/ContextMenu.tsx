@@ -18,13 +18,19 @@ interface State {
   items: MenuItem[];
 }
 
-/** Returns `[open, element]`. Call `open(event, items)` from `onContextMenu` and render `element` once. */
-export function useContextMenu(): [(e: MouseEvent, items: MenuItem[]) => void, ReactNode] {
+/**
+ * Returns `[open, element]`. Call `open(event, items)` from `onContextMenu` and render `element` once.
+ * The menu appears at the pointer, or at `at` (e.g. under the button that opened it).
+ */
+export function useContextMenu(): [
+  (e: MouseEvent, items: MenuItem[], at?: { x: number; y: number }) => void,
+  ReactNode,
+] {
   const [state, setState] = useState<State | null>(null);
-  const open = useCallback((e: MouseEvent, items: MenuItem[]) => {
+  const open = useCallback((e: MouseEvent, items: MenuItem[], at?: { x: number; y: number }) => {
     e.preventDefault();
     e.stopPropagation();
-    if (items.length) setState({ x: e.clientX, y: e.clientY, items });
+    if (items.length) setState({ x: at?.x ?? e.clientX, y: at?.y ?? e.clientY, items });
   }, []);
   return [open, state && <Menu state={state} onClose={() => setState(null)} />];
 }

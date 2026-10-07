@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FileDiff, GitCompare, Plus, Save, X } from 'lucide-react';
+import { ChevronDown, FileDiff, GitCompare, Plus, Save, X } from 'lucide-react';
 import { getAnalysis, useApp, useModelVersion } from '../store/app';
 import {
   closeTab,
@@ -10,9 +10,10 @@ import {
   selectTab,
 } from '../store/actions';
 import { COMMANDS } from '@shared/commands';
-import { host } from '../host';
+import { host, isMac } from '../host';
 import { useInspectorDraft } from '../store/inspectorDraft';
 import type { CompareTab, DocTab } from '../store/types';
+import { useContextMenu } from './common/ContextMenu';
 import { DocBadge } from './common/Icons';
 
 interface ShellProps {
@@ -80,20 +81,55 @@ function CompareTabItem({ tab, active }: { tab: CompareTab; active: boolean }) {
   );
 }
 
-/** Same path as File → Save (⌘S), so Inspector drafts are committed first. */
+const SAVE_KEY = isMac ? '⌘S' : 'Ctrl+S';
+const SAVE_AS_KEY = isMac ? '⇧⌘S' : 'Ctrl+Shift+S';
+
+/** Same paths as File → Save / Save As (⌘S / ⇧⌘S), so Inspector drafts are committed first. */
 function SaveButton({ tab }: { tab: DocTab }) {
   useModelVersion(tab.model);
   useInspectorDraft((s) => s.pending?.tabId === tab.id);
+  const [openMenu, menu] = useContextMenu();
   const dirty = isDirty(tab);
   return (
-    <button
-      className="btn-ghost"
-      onClick={() => dispatchCommand(COMMANDS.save.id)}
-      disabled={!dirty}
-      title={dirty ? 'Save (Ctrl/Cmd+S)' : 'No unsaved changes'}
-    >
-      <Save size={15} /> Save
-    </button>
+    <div className="split-btn">
+      <button
+        className="btn-ghost"
+        onClick={() => dispatchCommand(COMMANDS.save.id)}
+        disabled={!dirty}
+        title={dirty ? `Save (${SAVE_KEY})` : 'No unsaved changes'}
+      >
+        <Save size={15} /> Save
+      </button>
+      <button
+        className="btn-ghost split-more"
+        aria-label="More save options"
+        aria-haspopup="menu"
+        title="More save options"
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          openMenu(
+            e,
+            [
+              {
+                label: 'Save',
+                shortcut: SAVE_KEY,
+                disabled: !dirty,
+                onClick: () => dispatchCommand(COMMANDS.save.id),
+              },
+              {
+                label: 'Save As…',
+                shortcut: SAVE_AS_KEY,
+                onClick: () => dispatchCommand(COMMANDS.saveAs.id),
+              },
+            ],
+            { x: r.left, y: r.bottom + 2 },
+          );
+        }}
+      >
+        <ChevronDown size={14} />
+      </button>
+      {menu}
+    </div>
   );
 }
 
