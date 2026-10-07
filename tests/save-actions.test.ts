@@ -1,9 +1,11 @@
 /// <reference lib="dom" />
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildDocx } from './fixtures/builders';
+import { buildDocx, buildOdp } from './fixtures/builders';
 import { openFile, saveTab, saveTabAs } from '../src/renderer/src/store/actions';
 import { getState, setState, useApp } from '../src/renderer/src/store/app';
 import { PackageModel } from '../src/core/package/model';
+import { checkOdfPackage } from '../src/core/package/odf';
+import { ZipArchive } from '../src/core/zip/zip';
 
 const host = vi.hoisted(() => ({
   kind: 'electron',
@@ -81,6 +83,37 @@ describe('asynchronous saves', () => {
     expect(model.isDirty()).toBe(true);
     const restored = PackageModel.open(model.serialize());
     expect(restored.names()).toEqual(model.names());
+  });
+
+  it('keeps a part restored during the write in its original position', () => {
+    const model = PackageModel.open(buildOdp());
+    const order = model.entryOrder();
+    model.removePart('mimetype');
+    model.removePart('content.xml');
+    const version = model.version;
+    const bytes = model.serialize(); // the file being written has neither part
+    model.undo(); // content.xml is back...
+    model.undo(); // ...and so is mimetype, before the write completes
+    model.rebase(bytes, version);
+    expect(model.isDirty()).toBe(true); // the file on disk still lacks both
+    expect(model.entryOrder()).toEqual(order);
+    expect(model.names()).toEqual(PackageModel.open(model.serialize()).names());
+    expect(ZipArchive.open(model.serialize()).entries[0].name).toBe('mimetype');
+    expect(checkOdfPackage(model).map((p) => p.code)).not.toContain('odf-mimetype-order');
+  });
+
+  it('keeps restored parts in order when one of them is removed again', () => {
+    const model = PackageModel.open(buildOdp());
+    const order = model.entryOrder();
+    const [first, second, third] = order;
+    for (const name of [first, second, third]) model.removePart(name);
+    const version = model.version;
+    const bytes = model.serialize();
+    for (let i = 0; i < 3; i++) model.undo();
+    model.rebase(bytes, version);
+    expect(model.entryOrder()).toEqual(order);
+    model.removePart(second); // `third` was anchored to it
+    expect(model.entryOrder()).toEqual(order.filter((n) => n !== second));
   });
 
   it('marks an unchanged successful save clean', async () => {

@@ -81,6 +81,12 @@ export class PackageModel implements PartSource {
   private archive: ZipArchive;
   private overlay = new Map<string, PartSnapshot>();
   private added: string[] = [];
+  /**
+   * Original parts that `rebase()` carried over although the saved file lacks them (restored while
+   * the write was pending). Each is written right after the entry it followed (`null`: first)
+   * instead of last, which keeps an ODF `mimetype` first.
+   */
+  private anchors = new Map<string, string | null>();
   private bytesCache = new Map<string, Uint8Array>();
   private bytesCacheSize = 0;
   private textCache = new Map<string, DecodedText>();
@@ -120,23 +126,49 @@ export class PackageModel implements PartSource {
     return this.archive.get(name);
   }
 
+  /**
+   * Every archive entry (deleted ones too, directories included) in order, plus the added parts:
+   * those with an anchor right after it, the rest at the end.
+   */
+  private layout(): { name: string; entry?: ZipEntry }[] {
+    const out: { name: string; entry?: ZipEntry }[] = [];
+    const anchored = new Map<string | null, string[]>();
+    for (const n of this.added) {
+      const anchor = this.anchors.get(n);
+      if (anchor !== undefined) anchored.set(anchor, [...(anchored.get(anchor) ?? []), n]);
+    }
+    const placed = new Set<string>();
+    const placeAfter = (anchor: string | null): void => {
+      for (const n of anchored.get(anchor) ?? []) {
+        if (placed.has(n)) continue;
+        placed.add(n);
+        out.push({ name: n });
+        placeAfter(n);
+      }
+    };
+    placeAfter(null);
+    for (const entry of this.archive.entries) {
+      out.push({ name: entry.name, entry });
+      placeAfter(entry.name);
+    }
+    for (const n of this.added) if (!placed.has(n)) out.push({ name: n });
+    return out;
+  }
+
   names(): string[] {
     const out: string[] = [];
-    for (const e of this.archive.entries) {
-      if (e.isDirectory) continue;
-      if (this.overlay.get(e.name)?.kind === 'absent') continue;
-      out.push(e.name);
+    for (const { name, entry } of this.layout()) {
+      if (entry && (entry.isDirectory || this.overlay.get(name)?.kind === 'absent')) continue;
+      out.push(name);
     }
-    for (const n of this.added) out.push(n);
     return out;
   }
 
   /** Every entry — directories included — in the order `serialize()` writes them. */
   entryOrder(): string[] {
     const out: string[] = [];
-    for (const e of this.archive.entries)
-      if (this.overlay.get(e.name)?.kind !== 'absent') out.push(e.name);
-    for (const n of this.added) out.push(n);
+    for (const { name, entry } of this.layout())
+      if (!entry || this.overlay.get(name)?.kind !== 'absent') out.push(name);
     return out;
   }
 
@@ -293,11 +325,20 @@ export class PackageModel implements PartSource {
       else {
         this.overlay.delete(name);
         this.added = this.added.filter((n) => n !== name);
+        this.dropAnchor(name);
       }
       return;
     }
     this.overlay.set(name, snap);
     if (!isOrig && !this.added.includes(name)) this.added.push(name);
+  }
+
+  /** Forget where `name` was anchored; parts anchored to it move up to its own anchor. */
+  private dropAnchor(name: string): void {
+    const anchor = this.anchors.get(name);
+    if (anchor === undefined) return;
+    this.anchors.delete(name);
+    for (const [n, a] of this.anchors) if (a === name) this.anchors.set(n, anchor);
   }
 
   private isStructural(name: string): boolean {
@@ -462,22 +503,25 @@ export class PackageModel implements PartSource {
   /** Serialise the current state. Unchanged parts reuse their original compressed bytes. */
   serialize(): Uint8Array {
     const items: ZipWriteItem[] = [];
-    for (const e of this.archive.entries) {
-      const o = this.overlay.get(e.name);
+    for (const { name, entry: e } of this.layout()) {
+      if (!e) {
+        items.push({ kind: 'data', name, data: this.getBytes(name) });
+        continue;
+      }
+      const o = this.overlay.get(name);
       if (o?.kind === 'absent') continue;
       if (!o) {
         items.push({ kind: 'raw', entry: e, compressed: this.archive.raw(e) });
       } else {
         items.push({
           kind: 'data',
-          name: e.name,
-          data: this.getBytes(e.name),
+          name,
+          data: this.getBytes(name),
           comment: e.comment,
           externalAttrs: e.externalAttrs,
         });
       }
     }
-    for (const name of this.added) items.push({ kind: 'data', name, data: this.getBytes(name) });
     return writeZip(items);
   }
 
@@ -517,6 +561,8 @@ export class PackageModel implements PartSource {
         pending.set(name, concrete(name, this.snapshot(name)));
       }
     }
+    // Where each part sits now, so that ones the saved file lacks can go back to their slot.
+    const previousOrder = pending.size ? this.entryOrder() : [];
     for (const entry of [...this.undoStack, ...this.redoStack]) {
       for (const c of entry.changes) {
         c.before = concrete(c.part, c.before);
@@ -526,11 +572,16 @@ export class PackageModel implements PartSource {
     this.archive = saved;
     this.overlay.clear();
     this.added = [];
+    this.anchors.clear();
     this.bytesCache.clear();
     this.bytesCacheSize = 0;
     this.textCache.clear();
     this.xmlCache.clear();
     for (const [name, snapshot] of pending) this.put(name, snapshot);
+    const added = new Set(this.added);
+    previousOrder.forEach((name, i) => {
+      if (added.has(name) && old.get(name)) this.anchors.set(name, previousOrder[i - 1] ?? null);
+    });
     this.changed(true);
   }
 
