@@ -2,11 +2,10 @@
 
 [![CI](https://github.com/DominikPalo/OOXML-Toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/DominikPalo/OOXML-Toolkit/actions/workflows/ci.yml)
 
-A cross-platform desktop app (macOS, Windows, Linux) for **viewing, editing and comparing OOXML
-packages** — `.docx`, `.xlsx`, `.pptx` and their macro/template variants (`.docm`, `.xlsm`, `.pptm`,
-`.dotx`, `.xltx`, `.potx`, …). OpenDocument packages (`.odt`, `.ods`, `.odp`, …) and plain ZIP files
-open as well, because they are ZIP + XML too — ODF files get their document properties, a manifest
-view and an ODF-specific package check.
+A cross-platform desktop app (macOS, Windows, Linux) for **viewing, editing and comparing OOXML and
+OpenDocument packages**: `.docx`, `.xlsx`, `.pptx` and their macro/template variants (`.docm`,
+`.xlsm`, `.pptm`, `.dotx`, `.xltx`, `.potx`, …) as well as `.odt`, `.ods`, `.odp` and the other ODF
+formats.
 
 ![Animated tour: browse, edit, review, search, compare and check a document](docs/demo.gif)
 
