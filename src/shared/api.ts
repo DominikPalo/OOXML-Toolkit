@@ -1,10 +1,27 @@
 /** Contract between the Electron main process, the preload bridge and the renderer. */
 
+/** What identifies a version of a file on disk without reading it. */
+export interface FileStamp {
+  mtimeMs: number;
+  size: number;
+}
+
+export const sameStamp = (a: FileStamp | undefined, b: FileStamp | undefined): boolean =>
+  !!a && !!b && a.mtimeMs === b.mtimeMs && a.size === b.size;
+
+/** A watched file whose stamp is not the one reported last time. */
+export interface FileChange {
+  path: string;
+  stamp: FileStamp;
+}
+
 export interface OpenedFile {
   /** Absolute path (absent when the file came from a browser file input). */
   path?: string;
   name: string;
   data: Uint8Array;
+  /** Stamp of the file taken before it was read (a later change is then never missed). */
+  stamp?: FileStamp;
 }
 
 export interface FileFilter {
@@ -15,6 +32,8 @@ export interface FileFilter {
 export interface SaveResult {
   path?: string;
   name: string;
+  /** Stamp of the file that was written. */
+  stamp?: FileStamp;
 }
 
 export interface OpenDialogOptions {
@@ -63,8 +82,17 @@ export interface HostApi {
   /** Show the native open dialog and read the chosen files. Defaults to Office/ODF packages, multi-select. */
   openFiles(options?: OpenDialogOptions): Promise<OpenedFile[]>;
   readFile(path: string): Promise<Uint8Array>;
-  /** Write bytes to `path` (atomically). Optionally keep a `.bak` copy of the previous file. */
-  writeFile(path: string, data: Uint8Array, options?: { backup?: boolean }): Promise<void>;
+  /** Stamp of the file now; take it *before* `readFile` to know which version was read. */
+  statFile(path: string): Promise<FileStamp | undefined>;
+  /**
+   * Write bytes to `path` (atomically). Optionally keep a `.bak` copy of the previous file.
+   * Resolves with the stamp of the file that was written.
+   */
+  writeFile(
+    path: string,
+    data: Uint8Array,
+    options?: { backup?: boolean },
+  ): Promise<FileStamp | undefined>;
   /** Ask for a destination and write the bytes there. `undefined` if the user cancelled. */
   saveAs(
     defaultName: string,
@@ -87,6 +115,15 @@ export interface HostApi {
   /** Close the window without asking again (after the renderer confirmed). */
   forceClose(): void;
 
+  /** The files whose changes should be reported through `onFilesChanged` (replaces the previous set). */
+  watchFiles(paths: string[]): void;
+  /**
+   * Reports the stamp of a watched file when it differs from the one reported before — also once
+   * right after the file is first watched. Changes made by this app show up here too, so compare
+   * with the stamp you recorded when reading or writing the file.
+   */
+  onFilesChanged(cb: (changes: FileChange[]) => void): () => void;
+
   onOpenPaths(cb: (paths: string[]) => void): () => void;
   onCommand(cb: (command: string, arg?: string) => void): () => void;
   onCloseRequested(cb: () => void): () => void;
@@ -99,12 +136,14 @@ export const IPC = {
   readFile: 'host:readFile',
   writeFile: 'host:writeFile',
   saveAs: 'host:saveAs',
+  statFile: 'host:statFile',
   fileExists: 'host:fileExists',
   revealInFolder: 'host:revealInFolder',
   storageGet: 'host:storageGet',
   storageSet: 'host:storageSet',
   setWindowState: 'host:setWindowState',
   setRecentFiles: 'host:setRecentFiles',
+  watchFiles: 'host:watchFiles',
   forceClose: 'host:forceClose',
   approvePaths: 'host:approvePaths',
   ready: 'host:ready',
@@ -112,4 +151,5 @@ export const IPC = {
   evOpenPaths: 'ev:openPaths',
   evCommand: 'ev:command',
   evCloseRequested: 'ev:closeRequested',
+  evFilesChanged: 'ev:filesChanged',
 } as const;

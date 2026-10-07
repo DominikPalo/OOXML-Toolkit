@@ -4,22 +4,30 @@ import path from 'node:path';
 import { IPC, OOXML_EXTENSIONS, type OpenDialogOptions } from '../shared/api';
 import {
   approve,
+  approvedPath,
   approveRememberedPaths,
   fileExists,
   openFilesDialog,
   readFile,
   revealInFolder,
   saveAs,
+  statFile,
   writeFile,
 } from './files';
 import { buildMenu } from './menu';
 import { storageGet, storageSet } from './store';
+import { FileWatcher } from './watcher';
 
 let mainWindow: BrowserWindow | null = null;
 let rendererReady = false;
 let pendingPaths: string[] = [];
 let forceClose = false;
 let recent: string[] = [];
+
+const watcher = new FileWatcher(approvedPath, (changes) => {
+  if (mainWindow && !mainWindow.isDestroyed())
+    mainWindow.webContents.send(IPC.evFilesChanged, changes);
+});
 
 app.setName('OOXML Toolkit');
 app.setAboutPanelOptions({
@@ -150,7 +158,10 @@ function createWindow(): void {
       win.webContents.send(IPC.evCloseRequested);
     }
   });
+  // Coming back from another program (PowerPoint, ...) is when a change matters most.
+  win.on('focus', () => void watcher.check());
   win.on('closed', () => {
+    watcher.stop();
     mainWindow = null;
     rendererReady = false;
     forceClose = false;
@@ -187,6 +198,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.saveAs, (e, name: string, data: Uint8Array, filters) =>
     saveAs(windowOf(e), name, data, filters),
   );
+  ipcMain.handle(IPC.statFile, (_e, p: string) => statFile(p));
   ipcMain.handle(IPC.fileExists, (_e, p: string) => fileExists(p));
   ipcMain.handle(IPC.revealInFolder, (_e, p: string) => revealInFolder(p));
   ipcMain.handle(IPC.approvePaths, (_e, paths: string[]) => paths.forEach(approve));
@@ -209,6 +221,7 @@ function registerIpc(): void {
       for (const p of [...paths].reverse().slice(-10)) if (existsSync(p)) app.addRecentDocument(p);
     }
   });
+  ipcMain.on(IPC.watchFiles, (_e, paths: string[]) => watcher.watch(paths));
   ipcMain.on(IPC.forceClose, () => {
     forceClose = true;
     mainWindow?.close();

@@ -13,6 +13,7 @@ export const COMMANDS = {
   open: { id: 'file.open', label: 'Open…', accelerator: 'CmdOrCtrl+O' },
   save: { id: 'file.save', label: 'Save', accelerator: 'CmdOrCtrl+S' },
   saveAs: { id: 'file.saveAs', label: 'Save As…', accelerator: 'CmdOrCtrl+Shift+S' },
+  reload: { id: 'file.reload', label: 'Reload from Disk' },
   close: { id: 'file.close', label: 'Close Tab', accelerator: 'CmdOrCtrl+W' },
   compare: { id: 'file.compare', label: 'Compare Files…', accelerator: 'CmdOrCtrl+Shift+D' },
   compareDisk: {

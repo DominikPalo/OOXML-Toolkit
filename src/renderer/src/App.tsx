@@ -5,6 +5,7 @@ import { activeTab, setState, useApp } from './store/app';
 import {
   dispatchCommand,
   isDirty,
+  noteDiskChanges,
   openDropped,
   openPath,
   requestWindowClose,
@@ -14,6 +15,7 @@ import { loadPersisted, startPersisting } from './store/persist';
 import { useInspectorDraft } from './store/inspectorDraft';
 import { ActivityBar, Sidebar } from './components/sidebar/Sidebar';
 import { TabBar } from './components/TabBar';
+import { DiskChangeBanner } from './components/DiskChangeBanner';
 import { StatusBar } from './components/StatusBar';
 import { Welcome } from './components/Welcome';
 import { Dialogs } from './components/Dialogs';
@@ -32,6 +34,7 @@ function useBoot(): void {
     const offs = [
       host.onCommand((command, arg) => dispatchCommand(command, arg)),
       host.onOpenPaths((paths) => paths.forEach((p) => void openPath(p))),
+      host.onFilesChanged(noteDiskChanges),
       host.onCloseRequested(() => void requestWindowClose()),
     ];
     void (async () => {
@@ -92,6 +95,19 @@ function useWindowState(): void {
   }, [dirtyCount]);
 }
 
+/** Tells the host which files are open, so it reports when another program modifies them. */
+function useFileWatch(): void {
+  // A string, not an array: it must compare equal while the set of open files is unchanged.
+  const key = useApp((s) =>
+    [...new Set(s.tabs.flatMap((t) => (t.kind === 'doc' && t.path ? [t.path] : [])))]
+      .sort()
+      .join('\0'),
+  );
+  useEffect(() => {
+    host.watchFiles(key ? key.split('\0') : []);
+  }, [key]);
+}
+
 function useDragDrop(): boolean {
   const [dragging, setDragging] = useState(false);
   useEffect(() => {
@@ -137,13 +153,19 @@ function Main() {
   const tab = useApp((s) => activeTab(s));
   if (!tab) return <Welcome />;
   if (tab.kind === 'compare') return <CompareView key={tab.id} tab={tab} />;
-  return <DetailPane key={tab.id} tab={tab} />;
+  return (
+    <>
+      {tab.externalChange && !tab.externalChange.dismissed && <DiskChangeBanner tab={tab} />}
+      <DetailPane key={`${tab.id}:${tab.reloads}`} tab={tab} />
+    </>
+  );
 }
 
 export function App() {
   useBoot();
   useTheme();
   useWindowState();
+  useFileWatch();
   const dragging = useDragDrop();
   const ui = useApp((s) => s.ui);
   const hasTabs = useApp((s) => s.tabs.length > 0);

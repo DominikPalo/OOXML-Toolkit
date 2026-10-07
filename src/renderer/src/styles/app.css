@@ -493,6 +493,10 @@ body.resizing .resize-handle {
 .tab-close.dirty:hover .x {
   opacity: 1 !important;
 }
+.tab-stale {
+  flex: none;
+  color: var(--warn);
+}
 .tab-new {
   display: grid;
   place-items: center;
@@ -1554,6 +1558,23 @@ body.resizing .resize-handle {
   background: var(--accent-soft);
   color: var(--text);
   border-bottom: 1px solid var(--border);
+}
+.disk-banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 14px;
+  background: var(--warn-soft);
+  border-bottom: 1px solid var(--border);
+}
+.disk-banner-icon {
+  flex: none;
+  color: var(--warn);
+}
+.disk-banner-text {
+  flex: 1;
+  min-width: 0;
 }
 .status-letter {
   display: inline-grid;

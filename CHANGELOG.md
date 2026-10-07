@@ -5,6 +5,11 @@ All notable changes to this project are documented here. Each release is publish
 
 ## Unreleased
 
+- **Added:** when another program (PowerPoint, Word, a sync client, …) modifies a file that is open, a
+  warning bar offers to reload it and the tab shows a ⚠. Saving over such a file asks before
+  overwriting the other changes, and **File → Reload from Disk** re-reads the file at any time
+  (keeping the selection; unsaved edits are discarded after asking).
+
 ## 0.3.0 — 2026-10-07
 
 - **Added:** OpenDocument packages (`.odt`, `.ods`, `.odp`, templates, …) are first-class citizens.

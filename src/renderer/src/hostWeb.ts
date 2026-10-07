@@ -46,6 +46,7 @@ export function createWebHost(): HostApi {
         input.click();
       }),
     readFile: () => Promise.reject(new Error('Re-opening files by path requires the desktop app.')),
+    statFile: async () => undefined,
     writeFile: () => Promise.reject(new Error('Saving in place requires the desktop app.')),
     saveAs: async (defaultName, data) => {
       const url = URL.createObjectURL(new Blob([data as BlobPart]));
@@ -82,6 +83,9 @@ export function createWebHost(): HostApi {
     },
     setRecentFiles: () => undefined,
     forceClose: () => undefined,
+
+    watchFiles: () => undefined,
+    onFilesChanged: () => () => undefined,
 
     onOpenPaths: () => () => undefined,
     onCommand: (cb) => {

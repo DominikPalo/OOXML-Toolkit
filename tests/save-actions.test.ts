@@ -10,6 +10,7 @@ import { ZipArchive } from '../src/core/zip/zip';
 const host = vi.hoisted(() => ({
   kind: 'electron',
   os: 'darwin',
+  statFile: vi.fn(),
   writeFile: vi.fn(),
   saveAs: vi.fn(),
 }));
@@ -38,8 +39,7 @@ describe('asynchronous saves', () => {
     let finish!: () => void;
     host.writeFile.mockImplementation(() => new Promise<void>((r) => (finish = r)));
     const saving = saveTab(id);
-    await Promise.resolve();
-    expect(host.writeFile).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(host.writeFile).toHaveBeenCalledOnce());
     model.setText(part, original + '<!--newer-->');
     finish();
     expect(await saving).toBe(false); // Close must not discard the remaining edits.
