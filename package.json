@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "dev:web": "vite --config vite.web.config.ts",
+    "dev:tauri": "tauri dev",
     "build": "npm run typecheck && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
@@ -24,6 +25,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,html}\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"e2e/**/*.mjs\"",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
+    "build:tauri-renderer": "vite build --config vite.web.config.ts --outDir ../../out/tauri --emptyOutDir",
+    "dist:tauri": "npm run typecheck && tauri build",
     "icon": "electron scripts/render-icon.cjs",
     "screenshots": "npm run build && node e2e/screenshots.mjs",
     "demo": "npm run build && node e2e/demo.mjs"
@@ -37,6 +40,8 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.13",
     "@lezer/highlight": "^1.2.5",
+    "@tauri-apps/api": "~2.11.1",
+    "@tauri-apps/cli": "^2.12.1",
     "@types/node": "^24.19.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

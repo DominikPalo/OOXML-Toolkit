@@ -1,4 +1,4 @@
-/** Contract between the Electron main process, the preload bridge and the renderer. */
+/** Contract between the native host (Electron main + preload, or Tauri) and the renderer. */
 
 export interface OpenedFile {
   /** Absolute path (absent when the file came from a browser file input). */
@@ -53,7 +53,7 @@ export const OPEN_FILTERS: FileFilter[] = [
   { name: 'All files', extensions: ['*'] },
 ];
 
-export type HostKind = 'electron' | 'web';
+export type HostKind = 'electron' | 'tauri' | 'web';
 
 /** Everything the renderer needs from the outside world. */
 export interface HostApi {
@@ -73,7 +73,7 @@ export interface HostApi {
   ): Promise<SaveResult | undefined>;
   fileExists(path: string): Promise<boolean>;
   revealInFolder(path: string): Promise<void>;
-  /** Absolute path of a dropped `File` (Electron only). */
+  /** Absolute path of a dropped `File` (Electron only; Tauri delivers drops via `onOpenPaths`). */
   pathForFile(file: File): string | undefined;
   /** Allow saving to paths of files the user dropped onto the window. */
   approvePaths(paths: string[]): Promise<void>;
@@ -90,6 +90,11 @@ export interface HostApi {
   onOpenPaths(cb: (paths: string[]) => void): () => void;
   onCommand(cb: (command: string, arg?: string) => void): () => void;
   onCloseRequested(cb: () => void): () => void;
+  /**
+   * Files are dragged over the window. Only for hosts that take OS drops away from the page
+   * (Tauri), where no HTML5 drag events fire.
+   */
+  onFileDrag?(cb: (active: boolean) => void): () => void;
   /** Tells the main process that the renderer is ready to receive `open-paths` events. */
   ready(): void;
 }

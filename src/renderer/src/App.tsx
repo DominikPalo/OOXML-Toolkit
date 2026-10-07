@@ -119,11 +119,13 @@ function useDragDrop(): boolean {
       setDragging(false);
       void openDropped([...e.dataTransfer!.files]);
     };
+    const offHost = host.onFileDrag?.(setDragging);
     window.addEventListener('dragenter', enter);
     window.addEventListener('dragover', over);
     window.addEventListener('dragleave', leave);
     window.addEventListener('drop', drop);
     return () => {
+      offHost?.();
       window.removeEventListener('dragenter', enter);
       window.removeEventListener('dragover', over);
       window.removeEventListener('dragleave', leave);
