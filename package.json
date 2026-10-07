@@ -1,7 +1,7 @@
 {
   "name": "ooxml-toolkit",
   "productName": "OOXML Toolkit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Cross-platform desktop app to view, edit and compare OOXML files (DOCX, XLSX, PPTX and friends).",
   "author": "Dominik Paľo",
   "license": "MIT",

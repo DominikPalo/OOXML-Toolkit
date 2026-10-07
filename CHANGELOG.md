@@ -5,6 +5,8 @@ All notable changes to this project are documented here. Each release is publish
 
 ## Unreleased
 
+## 0.3.0 — 2026-10-07
+
 - **Added:** OpenDocument packages (`.odt`, `.ods`, `.odp`, templates, …) are first-class citizens.
   - The overview shows the document properties from `meta.xml` (title, author, keywords, dates, editing
     time, custom properties, statistics).
@@ -15,6 +17,14 @@ All notable changes to this project are documented here. Each release is publish
   - Adding or renaming a part updates the manifest; `mimetype` is shown as text and always saved first
     and uncompressed (previously it was deflated on save, which breaks ODF consumers).
   - There are no slide, document or worksheet previews for OpenDocument yet.
+- **Fixed:** edits made while a save is in progress are no longer lost or marked as saved, and a part
+  restored by undo during a save keeps its original position in the archive.
+- **Fixed:** changes typed into an Inspector field are committed before saving or closing, so they are no
+  longer left out of the file or silently discarded.
+- **Fixed:** concurrent writes to the same file are serialized, so two quick saves cannot interleave.
+- **Fixed:** part names in `[Content_Types].xml` are percent-encoded and decoded. Renaming a part with a
+  space in its name no longer produces an invalid override, and files with encoded names no longer get
+  false “no content type” findings in the package check.
 
 ## 0.2.0 — 2026-10-07
 
