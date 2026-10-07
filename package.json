@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "npm run build && node e2e/smoke.mjs",
+    "e2e:inspector": "npm run build && node e2e/inspector-drafts.mjs",
     "samples": "esbuild scripts/make-samples.ts --bundle --platform=node --format=esm --outfile=out/scripts/make-samples.mjs --log-level=warning && node out/scripts/make-samples.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,html}\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"e2e/**/*.mjs\"",
     "pack": "npm run build && electron-builder --dir",

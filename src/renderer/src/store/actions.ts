@@ -42,6 +42,7 @@ import type {
   TreeMode,
 } from './types';
 import type { SessionState } from './persist';
+import { commitInspectorDraft, hasInspectorDraft } from './inspectorDraft';
 
 let idSeq = 1;
 const newId = (prefix: string): string => `${prefix}-${idSeq++}-${Date.now().toString(36)}`;
@@ -191,6 +192,7 @@ export async function restoreSession(session: SessionState | undefined): Promise
 // ---------------------------------------------------------------------------------------------
 
 export function selectTab(id: string): void {
+  commitInspectorDraft();
   setState((s) => {
     const target = s.tabs.find((t) => t.id === id);
     // Search and package check only apply to documents; a comparison shows its own tree instead.
@@ -208,11 +210,13 @@ export function cycleTab(direction: 1 | -1): void {
   selectTab(tabs[(i + direction + tabs.length) % tabs.length].id);
 }
 
+/** Unsaved changes, including an Inspector field that has not been committed to the model yet. */
 export function isDirty(tab: Tab): boolean {
-  return tab.kind === 'doc' && tab.model.isDirty();
+  return tab.kind === 'doc' && (tab.model.isDirty() || hasInspectorDraft(tab.id));
 }
 
 export async function closeTab(id: string, options: { force?: boolean } = {}): Promise<boolean> {
+  commitInspectorDraft(id);
   const tab = getState().tabs.find((t) => t.id === id);
   if (!tab) return true;
   if (tab.kind === 'doc' && tab.model.isDirty() && !options.force) {
@@ -242,11 +246,12 @@ export async function closeTab(id: string, options: { force?: boolean } = {}): P
 }
 
 export function dirtyDocs(): DocTab[] {
-  return getState().tabs.filter((t): t is DocTab => t.kind === 'doc' && t.model.isDirty());
+  return getState().tabs.filter((t): t is DocTab => t.kind === 'doc' && isDirty(t));
 }
 
 /** Window close: ask what to do with unsaved documents, then close. */
 export async function requestWindowClose(): Promise<void> {
+  commitInspectorDraft();
   const dirty = dirtyDocs();
   if (!dirty.length) {
     host.forceClose();
@@ -304,6 +309,7 @@ async function confirmMalformed(tab: DocTab): Promise<boolean> {
 }
 
 export async function saveTab(id: string): Promise<boolean> {
+  commitInspectorDraft(id);
   const tab = docById(id);
   if (!tab) return false;
   if (!tab.path || host.kind === 'web') return saveTabAs(id);
@@ -319,6 +325,8 @@ export async function saveTab(id: string): Promise<boolean> {
     tab.model.rebase(bytes, savedVersion);
     touchHistorySize(fileKey(tab), bytes.length);
     toast('success', `Saved ${tab.name}`);
+    // Input typed while writing is not in the file: report the document as still unsaved.
+    commitInspectorDraft(id);
     return !tab.model.isDirty();
   } catch (e) {
     toastError('Save failed: ', e);
@@ -327,6 +335,7 @@ export async function saveTab(id: string): Promise<boolean> {
 }
 
 export async function saveTabAs(id: string): Promise<boolean> {
+  commitInspectorDraft(id);
   const tab = docById(id);
   if (!tab) return false;
   if (tab.model.isDirty() && !(await confirmMalformed(tab))) return false;
@@ -359,6 +368,7 @@ export async function saveTabAs(id: string): Promise<boolean> {
       }));
     }
     toast('success', host.kind === 'web' ? `Downloaded ${result.name}` : `Saved ${result.name}`);
+    commitInspectorDraft(id);
     return !tab.model.isDirty();
   } catch (e) {
     toastError('Save failed: ', e);
@@ -411,6 +421,7 @@ export function navigate(
   sel: Selection,
   options: { record?: boolean; detailTab?: DetailTab; sidebar?: boolean } = {},
 ): void {
+  commitInspectorDraft(id);
   // Never select a part the document does not contain (e.g. a stale link from another document).
   const target = docById(id);
   if (!target || (sel.part && !target.model.has(sel.part))) return;
@@ -517,6 +528,7 @@ export function setTreeMode(id: string, mode: TreeMode): void {
 }
 
 export function setDetailTab(id: string, detailTab: DetailTab): void {
+  commitInspectorDraft(id);
   updateDoc(id, { detailTab });
 }
 
@@ -1074,6 +1086,10 @@ export function findInPart(): void {
 }
 
 export function dispatchCommand(command: string, arg?: string): void {
+  // Menu accelerators leave the focused Inspector field alone, so flush it before any command reads
+  // the model. Undo / redo / find act on the field itself.
+  if (command !== COMMANDS.undo.id && command !== COMMANDS.redo.id && command !== COMMANDS.find.id)
+    commitInspectorDraft();
   const tab = activeTab();
   const doc = activeDoc();
   switch (command) {
