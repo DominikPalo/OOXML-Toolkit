@@ -263,7 +263,8 @@ function prepare(item: ZipWriteItem): Prepared {
     };
   }
   const isDir = item.name.endsWith('/');
-  let method = item.method ?? METHOD_DEFLATE;
+  // ODF requires the `mimetype` entry to be stored uncompressed (readers sniff its bytes).
+  let method = item.method ?? (item.name === 'mimetype' ? METHOD_STORED : METHOD_DEFLATE);
   let payload = item.data;
   if (isDir || item.data.length === 0) method = METHOD_STORED;
   else if (method === METHOD_DEFLATE) {

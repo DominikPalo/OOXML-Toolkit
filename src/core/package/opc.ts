@@ -1,6 +1,7 @@
 /** Open Packaging Conventions: content types, relationships, package family detection. */
 import type { PartSource } from './model';
 import { decodeEntities, tryParseXml, type XmlDocument } from '../xml/parser';
+import { ODF_MANIFEST_PART, ODF_MIMETYPE_PART, readManifest } from './odf';
 
 export const CONTENT_TYPES_PART = '[Content_Types].xml';
 export const PACKAGE_RELS_PART = '_rels/.rels';
@@ -238,28 +239,27 @@ const MAIN_TYPES: Array<[string, PackageType]> = [
   ['visio.drawing.main+xml', { family: 'visio', extension: 'vsdx', label: 'Visio drawing' }],
 ];
 
-const ODF_TYPES: Record<string, PackageType> = {
-  'application/vnd.oasis.opendocument.text': {
-    family: 'odf',
-    extension: 'odt',
-    label: 'OpenDocument text',
-  },
-  'application/vnd.oasis.opendocument.spreadsheet': {
-    family: 'odf',
-    extension: 'ods',
-    label: 'OpenDocument spreadsheet',
-  },
-  'application/vnd.oasis.opendocument.presentation': {
-    family: 'odf',
-    extension: 'odp',
-    label: 'OpenDocument presentation',
-  },
-  'application/vnd.oasis.opendocument.graphics': {
-    family: 'odf',
-    extension: 'odg',
-    label: 'OpenDocument drawing',
-  },
-};
+const odf = (suffix: string, extension: string, label: string): [string, PackageType] => [
+  `application/vnd.oasis.opendocument.${suffix}`,
+  { family: 'odf', extension, label },
+];
+
+const ODF_TYPES: Record<string, PackageType> = Object.fromEntries([
+  odf('text', 'odt', 'OpenDocument text'),
+  odf('spreadsheet', 'ods', 'OpenDocument spreadsheet'),
+  odf('presentation', 'odp', 'OpenDocument presentation'),
+  odf('graphics', 'odg', 'OpenDocument drawing'),
+  odf('text-template', 'ott', 'OpenDocument text template'),
+  odf('spreadsheet-template', 'ots', 'OpenDocument spreadsheet template'),
+  odf('presentation-template', 'otp', 'OpenDocument presentation template'),
+  odf('graphics-template', 'otg', 'OpenDocument drawing template'),
+  odf('text-master', 'odm', 'OpenDocument master document'),
+  odf('text-web', 'oth', 'OpenDocument HTML template'),
+  odf('chart', 'odc', 'OpenDocument chart'),
+  odf('formula', 'odf', 'OpenDocument formula'),
+  odf('database', 'odb', 'OpenDocument database'),
+  odf('image', 'odi', 'OpenDocument image'),
+]);
 
 export interface PackageAnalysis {
   structureVersion: number;
@@ -304,8 +304,7 @@ export function analyzePackage(src: PartSource, structureVersion = 0): PackageAn
   const mainRel = relationships
     .get('')
     ?.find((r) => r.type.endsWith('/officeDocument') || r.type.endsWith('/document'));
-  const mainPart =
-    mainRel?.resolved && nameSet.has(mainRel.resolved) ? mainRel.resolved : undefined;
+  let mainPart = mainRel?.resolved && nameSet.has(mainRel.resolved) ? mainRel.resolved : undefined;
 
   let type: PackageType = { family: 'unknown', label: 'ZIP package' };
   const mainCt = mainPart ? contentTypeOf(contentTypes, mainPart) : undefined;
@@ -316,8 +315,24 @@ export function analyzePackage(src: PartSource, structureVersion = 0): PackageAn
   } else if (nameSet.has('mimetype')) {
     const mime = src.getText('mimetype').text.trim();
     type = ODF_TYPES[mime] ?? { family: 'odf', label: 'OpenDocument package' };
+  } else if (nameSet.has('META-INF/manifest.xml')) {
+    // An ODF manifest without a `mimetype` entry: still ODF, and the package check will say what is missing.
+    type = { family: 'odf', label: 'OpenDocument package' };
   } else if (nameSet.has(CONTENT_TYPES_PART)) {
     type = { family: 'unknown', label: 'Open Packaging Conventions package' };
+  }
+  // ODF has no officeDocument relationship; its document is content.xml.
+  if (type.family === 'odf' && !mainPart && nameSet.has('content.xml')) mainPart = 'content.xml';
+
+  // ODF has no [Content_Types].xml either: the manifest lists each part's media type instead.
+  if (type.family === 'odf') {
+    for (const e of readManifest(src)?.entries ?? [])
+      if (e.mediaType && !e.isDirectory) contentTypes.overrides.set(e.fullPath, e.mediaType);
+    // The two bookkeeping entries are not expected to be listed.
+    if (!contentTypes.overrides.has(ODF_MIMETYPE_PART))
+      contentTypes.overrides.set(ODF_MIMETYPE_PART, 'text/plain');
+    if (!contentTypes.overrides.has(ODF_MANIFEST_PART))
+      contentTypes.overrides.set(ODF_MANIFEST_PART, 'text/xml');
   }
 
   return {
