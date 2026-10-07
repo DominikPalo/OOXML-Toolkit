@@ -14,7 +14,13 @@ import { comparePackages, type DiffStatus } from '@core/compare/compare';
 import { formatXml, minifyXml } from '@core/xml/format';
 import { elementAtPath, elementPath, resolveSimpleXPath, xpathOf } from '@core/xml/parser';
 import { COMMANDS } from '@shared/commands';
-import { sameStamp, type FileChange, type FileFilter, type OpenedFile } from '@shared/api';
+import {
+  sameStamp,
+  type FileChange,
+  type FileFilter,
+  type FileStamp,
+  type OpenedFile,
+} from '@shared/api';
 import { host } from '../host';
 import { ancestorIds, elementRowId, folderRowId, partRowId, type TreeRow } from '../lib/treeModel';
 import { previewKindOf, tabsFor } from '../lib/previewKind';
@@ -325,6 +331,14 @@ async function confirmOverwrite(tab: DocTab): Promise<boolean> {
   return choice === 'save';
 }
 
+async function statOrUndefined(path: string): Promise<FileStamp | undefined> {
+  try {
+    return await host.statFile(path);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function saveTab(id: string): Promise<boolean> {
   commitInspectorDraft(id);
   const tab = docById(id);
@@ -334,17 +348,25 @@ export async function saveTab(id: string): Promise<boolean> {
     toast('info', 'No changes to save.');
     return true;
   }
-  if (tab.externalChange && !(await confirmOverwrite(tab))) return false;
+  // The watcher polls, so a change from the last second may not be flagged yet: look at the file.
+  const onDisk = await statOrUndefined(tab.path);
+  const changed =
+    !!tab.externalChange || (!!onDisk && !!tab.diskStamp && !sameStamp(onDisk, tab.diskStamp));
+  if (changed && !(await confirmOverwrite(tab))) return false;
   if (!(await confirmMalformed(tab))) return false;
   try {
+    const replaced = [tab.externalChange?.stamp, onDisk]; // the versions the user agreed to replace
     const savedVersion = tab.model.version;
     const bytes = tab.model.serialize();
     const diskStamp = await host.writeFile(tab.path, bytes, {
       backup: getState().settings.backupOnSave,
     });
     tab.model.rebase(bytes, savedVersion);
-    // Whatever was on disk before is gone now, including a change flagged while writing.
-    updateDoc(id, { diskStamp, externalChange: undefined });
+    // A warning raised while writing stays unless it only reports our own write.
+    updateDoc(id, (t) => ({
+      diskStamp,
+      externalChange: diskStamp ? remainingChange(t, [...replaced, diskStamp]) : undefined,
+    }));
     touchHistorySize(fileKey(tab), bytes.length);
     toast('success', `Saved ${tab.name}`);
     // Input typed while writing is not in the file: report the document as still unsaved.
@@ -421,14 +443,28 @@ export function noteDiskChanges(changes: FileChange[]): void {
       if (tab.kind !== 'doc' || tab.path !== path) continue;
       if (!tab.diskStamp) updateDoc(tab.id, { diskStamp: stamp });
       else if (!sameStamp(tab.diskStamp, stamp))
-        updateDoc(tab.id, { externalChange: { dismissed: false } });
+        updateDoc(tab.id, { externalChange: { dismissed: false, stamp } });
     }
   }
 }
 
+/**
+ * The warning still due once the document was brought in line with the disk (saved or reloaded): one
+ * raised by a version that is none of the `handled` ones, i.e. a change made since.
+ */
+function remainingChange(
+  tab: DocTab,
+  handled: Array<FileStamp | undefined>,
+): DocTab['externalChange'] {
+  const change = tab.externalChange;
+  return change && !handled.some((h) => sameStamp(h, change.stamp)) ? change : undefined;
+}
+
 /** Keep working with this version: hide the banner (the tab keeps its warning icon). */
 export function dismissExternalChange(id: string): void {
-  updateDoc(id, (tab) => (tab.externalChange ? { externalChange: { dismissed: true } } : {}));
+  updateDoc(id, (tab) =>
+    tab.externalChange ? { externalChange: { ...tab.externalChange, dismissed: true } } : {},
+  );
 }
 
 /** What of `sel` still exists in a package that was read again. */
@@ -469,6 +505,7 @@ export async function reloadTab(id: string): Promise<boolean> {
     if (choice !== 'reload') return false;
   }
   try {
+    const replaced = docById(id)?.externalChange?.stamp; // the change this reload deals with
     const diskStamp = await host.statFile(path);
     const data = await host.readFile(path);
     const model = PackageModel.open(data, tab.name);
@@ -478,7 +515,8 @@ export async function reloadTab(id: string): Promise<boolean> {
       return {
         model,
         diskStamp,
-        externalChange: undefined,
+        // A change reported while reading may postdate what was read.
+        externalChange: remainingChange(t, [replaced, diskStamp]),
         reloads: t.reloads + 1,
         selection,
         selectedRowId: sameSelection(selection, t.selection)

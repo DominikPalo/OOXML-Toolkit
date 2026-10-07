@@ -38,7 +38,11 @@ export interface DocTab {
   /** Stamp of the file as it was when `model` was read from it or last saved to it. */
   diskStamp?: FileStamp;
   /** Another program changed the file on disk after it was loaded here. */
-  externalChange?: { dismissed: boolean };
+  externalChange?: {
+    dismissed: boolean;
+    /** The version on disk that raised the warning. */
+    stamp: FileStamp;
+  };
   /** How often the document was reloaded from disk (remounts the views of the old model). */
   reloads: number;
 

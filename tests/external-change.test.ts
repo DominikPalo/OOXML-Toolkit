@@ -55,7 +55,7 @@ describe('noticing that another program changed the file', () => {
     noteDiskChanges([{ path: '/other.docx', stamp: stamp(9) }]);
     expect(doc(id).externalChange).toBeUndefined();
     noteDiskChanges([{ path: PATH, stamp: stamp(2) }]);
-    expect(doc(id).externalChange).toEqual({ dismissed: false });
+    expect(doc(id).externalChange).toEqual({ dismissed: false, stamp: stamp(2) });
   });
 
   it('adopts the first stamp of a document that was opened without one', () => {
@@ -71,9 +71,9 @@ describe('noticing that another program changed the file', () => {
     const id = openDoc();
     noteDiskChanges([{ path: PATH, stamp: stamp(2) }]);
     dismissExternalChange(id);
-    expect(doc(id).externalChange).toEqual({ dismissed: true });
+    expect(doc(id).externalChange).toEqual({ dismissed: true, stamp: stamp(2) });
     noteDiskChanges([{ path: PATH, stamp: stamp(3) }]);
-    expect(doc(id).externalChange).toEqual({ dismissed: false });
+    expect(doc(id).externalChange).toEqual({ dismissed: false, stamp: stamp(3) });
   });
 });
 
@@ -107,9 +107,50 @@ describe('saving over a changed file', () => {
     expect(doc(id).externalChange).toBeUndefined();
   });
 
+  it('asks when the file changed but the watcher has not reported it yet', async () => {
+    const id = openDoc();
+    edit(id);
+    host.statFile.mockResolvedValue(stamp(2)); // the file itself, not the (up to a second old) flag
+    const saving = saveTab(id);
+    await answer('cancel');
+    expect(await saving).toBe(false);
+    expect(host.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('keeps a change that is reported while the write is in flight', async () => {
+    const id = openDoc();
+    edit(id);
+    host.statFile.mockResolvedValue(stamp(1));
+    let finish!: (s: unknown) => void;
+    host.writeFile.mockImplementation(() => new Promise((r) => (finish = r)));
+    const saving = saveTab(id);
+    await vi.waitFor(() => expect(host.writeFile).toHaveBeenCalled());
+    noteDiskChanges([{ path: PATH, stamp: stamp(4) }]); // another program replaced our version
+    finish(stamp(3));
+    expect(await saving).toBe(true);
+    expect(doc(id).diskStamp).toEqual(stamp(3));
+    expect(doc(id).externalChange).toEqual({ dismissed: false, stamp: stamp(4) });
+  });
+
+  it('is not alarmed by the report of its own write', async () => {
+    const id = openDoc();
+    edit(id);
+    host.statFile.mockResolvedValue(stamp(1));
+    let finish!: (s: unknown) => void;
+    host.writeFile.mockImplementation(() => new Promise((r) => (finish = r)));
+    const saving = saveTab(id);
+    await vi.waitFor(() => expect(host.writeFile).toHaveBeenCalled());
+    noteDiskChanges([{ path: PATH, stamp: stamp(3) }]); // seen before the write call returns
+    expect(doc(id).externalChange).toBeDefined();
+    finish(stamp(3));
+    await saving;
+    expect(doc(id).externalChange).toBeUndefined();
+  });
+
   it('does not ask when the file is as it was read', async () => {
     const id = openDoc();
     edit(id);
+    host.statFile.mockResolvedValue(stamp(1));
     host.writeFile.mockResolvedValue(stamp(2));
     expect(await saveTab(id)).toBe(true);
     expect(getState().dialog).toBeNull();
@@ -158,6 +199,41 @@ describe('reloading', () => {
     expect(host.statFile.mock.invocationCallOrder[0]).toBeLessThan(
       host.readFile.mock.invocationCallOrder[0],
     );
+  });
+
+  it('keeps a change that is reported while the file is being read', async () => {
+    const id = openDoc();
+    noteDiskChanges([{ path: PATH, stamp: stamp(2) }]);
+    host.statFile.mockResolvedValue(stamp(2));
+    host.readFile.mockImplementation(async () => {
+      noteDiskChanges([{ path: PATH, stamp: stamp(3) }]); // changed again after the stat
+      return changedFile();
+    });
+    expect(await reloadTab(id)).toBe(true);
+    expect(doc(id).diskStamp).toEqual(stamp(2));
+    expect(doc(id).externalChange).toEqual({ dismissed: false, stamp: stamp(3) });
+  });
+
+  it('clears the warning when the report that arrives is for the version it read', async () => {
+    const id = openDoc();
+    host.statFile.mockResolvedValue(stamp(2));
+    host.readFile.mockImplementation(async () => {
+      noteDiskChanges([{ path: PATH, stamp: stamp(2) }]); // the report of the change being loaded
+      return changedFile();
+    });
+    expect(await reloadTab(id)).toBe(true);
+    expect(doc(id).externalChange).toBeUndefined();
+  });
+
+  it('clears a warning for an older change when the file is newer by now', async () => {
+    const id = openDoc();
+    noteDiskChanges([{ path: PATH, stamp: stamp(2) }]);
+    host.statFile.mockResolvedValue(stamp(3)); // changed again; its report is still on its way
+    host.readFile.mockResolvedValue(changedFile());
+    expect(await reloadTab(id)).toBe(true);
+    expect(doc(id).externalChange).toBeUndefined();
+    noteDiskChanges([{ path: PATH, stamp: stamp(3) }]); // ...and matches what was read
+    expect(doc(id).externalChange).toBeUndefined();
   });
 
   it('falls back to what still exists when the selection is gone', async () => {
