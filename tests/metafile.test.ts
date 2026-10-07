@@ -67,7 +67,7 @@ describe('metafileToSvg', () => {
 
   it('handles drawings with far more shapes than fit in a spread call', async () => {
     // Regression: emf-converter spread every top-level element into push(), which overflows the
-    // call stack past ~120k elements (a real 25 MB CAD export has 410k). Fixed by patches/.
+    // call stack past ~120k elements (a real 25 MB CAD export has 410k). Fixed upstream in 4.11.3.
     const records: [number, ...number[]][] = [...emfBrush(1, rgb(10, 20, 30))];
     for (let i = 0; i < 150_000; i++) {
       const x = i % 400;
