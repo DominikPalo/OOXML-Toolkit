@@ -7,8 +7,8 @@ All notable changes to this project are documented here. Each release is publish
 
 - **Added:** EMF and WMF images can be previewed — in the image view, the slide preview and the
   comparison view. They are converted to SVG with [emf-converter](https://github.com/ChristopherVR/emf-converter)
-  (EMF, EMF+ and WMF). The dependency is patched (`patches/`) to stop it overflowing the call stack on
-  drawings with more than ~120 000 shapes, such as large CAD floor plans.
+  (EMF, EMF+ and WMF). Very large drawings — hundreds of thousands of shapes, such as CAD floor plans —
+  work with emf-converter 4.11.3 or later, which no longer overflows the call stack on them.
 
 ## 0.1.1 — 2026-10-06
 
