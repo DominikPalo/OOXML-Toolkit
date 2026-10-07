@@ -27,7 +27,7 @@ The builds are not notarized yet, so each system asks for a one-time confirmatio
 - **Windows** — SmartScreen: **More info → Run anyway**.
 - **Linux** — `chmod +x` the AppImage (and install FUSE 2 if it does not start).
 
-Details are in the [release notes](docs/releases/v0.1.1.md). Prefer to build it yourself? See
+Details are in the [release notes](docs/releases/v0.2.0.md). Prefer to build it yourself? See
 [Getting started](#getting-started).
 
 ## Highlights

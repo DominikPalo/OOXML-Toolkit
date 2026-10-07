@@ -3,12 +3,14 @@
 All notable changes to this project are documented here. Each release is published on the
 [releases page](https://github.com/DominikPalo/OOXML-Toolkit/releases) with its installers.
 
-## Unreleased
+## 0.2.0 — 2026-10-07
 
 - **Added:** EMF and WMF images can be previewed — in the image view, the slide preview and the
   comparison view. They are converted to SVG with [emf-converter](https://github.com/ChristopherVR/emf-converter)
   (EMF, EMF+ and WMF). Very large drawings — hundreds of thousands of shapes, such as CAD floor plans —
   work with emf-converter 4.11.3 or later, which no longer overflows the call stack on them.
+- **Changed:** `emf-converter` is upgraded to 4.11.3, which fixes that crash itself, so the local patch
+  and the `patch-package` dependency are removed.
 
 ## 0.1.1 — 2026-10-06
 
