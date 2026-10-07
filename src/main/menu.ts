@@ -71,6 +71,7 @@ export function buildMenu(recent: string[]): void {
         { type: 'separator' },
         cmd(COMMANDS.save),
         cmd(COMMANDS.saveAs),
+        cmd(COMMANDS.reload),
         { type: 'separator' },
         cmd(COMMANDS.compare),
         cmd(COMMANDS.compareDisk),

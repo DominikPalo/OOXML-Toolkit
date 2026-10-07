@@ -222,6 +222,14 @@ packages (e.g. a workbook embedded in a document) can be opened in their own tab
   operations, renames. Typing is grouped into single steps. The history survives saving. It is capped
   at roughly 300 steps / 256 MB.
 - Closing a tab or the window with unsaved changes asks whether to save, discard or cancel.
+- **Files changed by another program.** If PowerPoint, Word, a sync client or anything else modifies a
+  file that is open here, a yellow bar offers to **Reload** it and the tab shows a ⚠. **✕** hides the
+  bar and keeps working with the version open here; the ⚠ stays, and the bar returns if the file changes
+  again. Saving over a changed file asks first, so the other program's edits are never overwritten by
+  accident. **File → Reload from Disk** re-reads the file at any time (also without a warning); the tab
+  keeps its selection, but unsaved edits and the undo history are discarded — after asking. The app's
+  own saves never trigger the warning. Files are checked every second and whenever the window regains
+  focus, by modification time and size; the browser build does not watch files.
 
 **Review changes** (`⌥⌘D` / `Ctrl+Alt+D`, or the button on the overview) compares the saved version
 with your edits:

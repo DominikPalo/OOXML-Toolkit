@@ -14,7 +14,7 @@ import { comparePackages, type DiffStatus } from '@core/compare/compare';
 import { formatXml, minifyXml } from '@core/xml/format';
 import { elementAtPath, elementPath, resolveSimpleXPath, xpathOf } from '@core/xml/parser';
 import { COMMANDS } from '@shared/commands';
-import type { FileFilter, OpenedFile } from '@shared/api';
+import { sameStamp, type FileChange, type FileFilter, type OpenedFile } from '@shared/api';
 import { host } from '../host';
 import { ancestorIds, elementRowId, folderRowId, partRowId, type TreeRow } from '../lib/treeModel';
 import { previewKindOf, tabsFor } from '../lib/previewKind';
@@ -42,7 +42,7 @@ import type {
   TreeMode,
 } from './types';
 import type { SessionState } from './persist';
-import { commitInspectorDraft, hasInspectorDraft } from './inspectorDraft';
+import { commitInspectorDraft, discardInspectorDraft, hasInspectorDraft } from './inspectorDraft';
 
 let idSeq = 1;
 const newId = (prefix: string): string => `${prefix}-${idSeq++}-${Date.now().toString(36)}`;
@@ -75,8 +75,9 @@ export async function openPath(path: string): Promise<boolean> {
     return true;
   }
   try {
+    const stamp = await host.statFile(path); // before reading, so a later change is never missed
     const data = await host.readFile(path);
-    return openFile({ path, name: baseName(path.replace(/\\/g, '/')), data }) !== undefined;
+    return openFile({ path, name: baseName(path.replace(/\\/g, '/')), data, stamp }) !== undefined;
   } catch (e) {
     toastError(`Could not open ${baseName(path.replace(/\\/g, '/'))}: `, e);
     return false;
@@ -115,6 +116,8 @@ export function openFile(
     path: file.path,
     model,
     readOnly: options.readOnly ?? false,
+    diskStamp: file.stamp,
+    reloads: 0,
     selection: {},
     selectedRowId: 'root',
     treeMode: 'parts',
@@ -154,7 +157,8 @@ export async function openDropped(files: File[]): Promise<void> {
     try {
       const path = host.pathForFile(f);
       if (path) await host.approvePaths([path]);
-      openFile({ path, name: f.name, data: new Uint8Array(await f.arrayBuffer()) });
+      const stamp = path ? await host.statFile(path) : undefined;
+      openFile({ path, name: f.name, data: new Uint8Array(await f.arrayBuffer()), stamp });
     } catch (e) {
       toastError(`Could not open ${f.name}: `, e);
     }
@@ -308,6 +312,19 @@ async function confirmMalformed(tab: DocTab): Promise<boolean> {
   return choice === 'save';
 }
 
+async function confirmOverwrite(tab: DocTab): Promise<boolean> {
+  selectTab(tab.id);
+  const choice = await confirmDialog({
+    title: `“${tab.name}” was changed by another program`,
+    message: 'Saving replaces those changes with the version open here. Save anyway?',
+    buttons: [
+      { label: 'Cancel', value: 'cancel' },
+      { label: 'Overwrite', value: 'save', danger: true },
+    ],
+  });
+  return choice === 'save';
+}
+
 export async function saveTab(id: string): Promise<boolean> {
   commitInspectorDraft(id);
   const tab = docById(id);
@@ -317,12 +334,17 @@ export async function saveTab(id: string): Promise<boolean> {
     toast('info', 'No changes to save.');
     return true;
   }
+  if (tab.externalChange && !(await confirmOverwrite(tab))) return false;
   if (!(await confirmMalformed(tab))) return false;
   try {
     const savedVersion = tab.model.version;
     const bytes = tab.model.serialize();
-    await host.writeFile(tab.path, bytes, { backup: getState().settings.backupOnSave });
+    const diskStamp = await host.writeFile(tab.path, bytes, {
+      backup: getState().settings.backupOnSave,
+    });
     tab.model.rebase(bytes, savedVersion);
+    // Whatever was on disk before is gone now, including a change flagged while writing.
+    updateDoc(id, { diskStamp, externalChange: undefined });
     touchHistorySize(fileKey(tab), bytes.length);
     toast('success', `Saved ${tab.name}`);
     // Input typed while writing is not in the file: report the document as still unsaved.
@@ -346,7 +368,12 @@ export async function saveTabAs(id: string): Promise<boolean> {
     if (!result) return false;
     tab.model.rebase(bytes, savedVersion);
     const oldKey = fileKey(tab);
-    updateDoc(id, { name: result.name, path: result.path ?? tab.path });
+    updateDoc(id, {
+      name: result.name,
+      path: result.path ?? tab.path,
+      diskStamp: result.stamp,
+      externalChange: undefined,
+    });
     if (result.path) {
       setState((s) => ({
         history: [
@@ -378,6 +405,99 @@ export async function saveTabAs(id: string): Promise<boolean> {
 
 function touchHistorySize(key: string, size: number): void {
   setState((s) => ({ history: s.history.map((h) => (h.key === key ? { ...h, size } : h)) }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Files changed by other programs
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Stamps the host saw on disk. Each open document compares them with the one it was read from (or
+ * last saved as), so a file this app wrote itself is not reported as a change.
+ */
+export function noteDiskChanges(changes: FileChange[]): void {
+  for (const { path, stamp } of changes) {
+    for (const tab of getState().tabs) {
+      if (tab.kind !== 'doc' || tab.path !== path) continue;
+      if (!tab.diskStamp) updateDoc(tab.id, { diskStamp: stamp });
+      else if (!sameStamp(tab.diskStamp, stamp))
+        updateDoc(tab.id, { externalChange: { dismissed: false } });
+    }
+  }
+}
+
+/** Keep working with this version: hide the banner (the tab keeps its warning icon). */
+export function dismissExternalChange(id: string): void {
+  updateDoc(id, (tab) => (tab.externalChange ? { externalChange: { dismissed: true } } : {}));
+}
+
+/** What of `sel` still exists in a package that was read again. */
+function selectionIn(model: PackageModel, sel: Selection): Selection {
+  if (sel.part) {
+    if (!model.has(sel.part)) return {};
+    if (!sel.path) return { part: sel.part };
+    const { doc } = model.getXml(sel.part);
+    return doc && elementAtPath(doc, sel.path) ? sel : { part: sel.part };
+  }
+  const folder = sel.folder;
+  return folder && model.names().some((n) => n.startsWith(folder)) ? sel : {};
+}
+
+/**
+ * Replace the document with the file on disk, keeping the tab and what is selected in it. Unsaved
+ * changes and the undo history are discarded (after asking).
+ */
+export async function reloadTab(id: string): Promise<boolean> {
+  commitInspectorDraft(id);
+  const tab = docById(id);
+  if (!tab) return false;
+  const path = tab.path;
+  if (!path) {
+    toast('info', `${tab.name} was not opened from a file, so there is nothing to reload.`);
+    return false;
+  }
+  if (tab.model.isDirty()) {
+    selectTab(id);
+    const choice = await confirmDialog({
+      title: `Reload “${tab.name}”?`,
+      message: 'Your unsaved changes will be discarded and replaced with the file on disk.',
+      buttons: [
+        { label: 'Cancel', value: 'cancel' },
+        { label: 'Discard Changes and Reload', value: 'reload', danger: true },
+      ],
+    });
+    if (choice !== 'reload') return false;
+  }
+  try {
+    const diskStamp = await host.statFile(path);
+    const data = await host.readFile(path);
+    const model = PackageModel.open(data, tab.name);
+    discardInspectorDraft(id);
+    updateDoc(id, (t) => {
+      const selection = selectionIn(model, t.selection);
+      return {
+        model,
+        diskStamp,
+        externalChange: undefined,
+        reloads: t.reloads + 1,
+        selection,
+        selectedRowId: sameSelection(selection, t.selection)
+          ? t.selectedRowId
+          : t.treeMode === 'parts'
+            ? rowIdForSelection(selection)
+            : '',
+        detailTab: validDetailTab({ ...t, model }, selection),
+        reveal: undefined,
+        problems: { status: 'idle', items: [], atVersion: -1 },
+      };
+    });
+    touchHistorySize(fileKey(tab), data.length);
+    toast('info', `Reloaded ${tab.name}`);
+    return true;
+  } catch (e) {
+    toastError(`Could not reload ${tab.name}: `, e);
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1104,6 +1224,9 @@ export function dispatchCommand(command: string, arg?: string): void {
       break;
     case COMMANDS.saveAs.id:
       if (doc) void saveTabAs(doc.id);
+      break;
+    case COMMANDS.reload.id:
+      if (doc) void reloadTab(doc.id);
       break;
     case COMMANDS.close.id:
       if (tab) void closeTab(tab.id);

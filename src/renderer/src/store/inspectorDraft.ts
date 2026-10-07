@@ -33,6 +33,12 @@ export function clearInspectorDraft(tabId: string, attr: string | null): void {
     useInspectorDraft.setState({ pending: null });
 }
 
+/** Throw away the pending draft of a tab (its document is being replaced). */
+export function discardInspectorDraft(tabId: string): void {
+  if (useInspectorDraft.getState().pending?.tabId === tabId)
+    useInspectorDraft.setState({ pending: null });
+}
+
 export function hasInspectorDraft(tabId: string): boolean {
   return useInspectorDraft.getState().pending?.tabId === tabId;
 }

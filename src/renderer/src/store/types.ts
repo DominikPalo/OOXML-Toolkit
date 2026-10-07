@@ -2,6 +2,7 @@ import type { PackageModel, PartSource } from '@core/package/model';
 import type { Problem } from '@core/package/validate';
 import type { CompareOptions, CompareResult, DiffStatus } from '@core/compare/compare';
 import type { PackageFamily } from '@core/package/opc';
+import type { FileStamp } from '@shared/api';
 
 export type SidebarView = 'explorer' | 'search' | 'bookmarks' | 'history' | 'problems';
 export type TreeMode = 'parts' | 'relationships';
@@ -34,6 +35,12 @@ export interface DocTab {
   path?: string;
   model: PackageModel;
   readOnly: boolean;
+  /** Stamp of the file as it was when `model` was read from it or last saved to it. */
+  diskStamp?: FileStamp;
+  /** Another program changed the file on disk after it was loaded here. */
+  externalChange?: { dismissed: boolean };
+  /** How often the document was reloaded from disk (remounts the views of the old model). */
+  reloads: number;
 
   selection: Selection;
   /** Row id of the selected tree row (needed in relationship mode where parts occur many times). */

@@ -15,6 +15,7 @@ const host: HostApi = {
   readFile: (path) => ipcRenderer.invoke(IPC.readFile, path),
   writeFile: (path, data, options) => ipcRenderer.invoke(IPC.writeFile, path, data, options),
   saveAs: (name, data, filters) => ipcRenderer.invoke(IPC.saveAs, name, data, filters),
+  statFile: (path) => ipcRenderer.invoke(IPC.statFile, path),
   fileExists: (path) => ipcRenderer.invoke(IPC.fileExists, path),
   revealInFolder: (path) => ipcRenderer.invoke(IPC.revealInFolder, path),
   pathForFile: (file) => {
@@ -34,6 +35,9 @@ const host: HostApi = {
   setWindowState: (state) => ipcRenderer.send(IPC.setWindowState, state),
   setRecentFiles: (paths) => ipcRenderer.send(IPC.setRecentFiles, paths),
   forceClose: () => ipcRenderer.send(IPC.forceClose),
+
+  watchFiles: (paths) => ipcRenderer.send(IPC.watchFiles, paths),
+  onFilesChanged: (cb) => subscribe(IPC.evFilesChanged, cb),
 
   onOpenPaths: (cb) => subscribe(IPC.evOpenPaths, cb),
   onCommand: (cb) => subscribe(IPC.evCommand, cb),

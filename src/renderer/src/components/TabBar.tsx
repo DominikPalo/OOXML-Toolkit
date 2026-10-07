@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronDown, FileDiff, GitCompare, Plus, Save, X } from 'lucide-react';
+import { ChevronDown, FileDiff, GitCompare, Plus, Save, TriangleAlert, X } from 'lucide-react';
 import { getAnalysis, useApp, useModelVersion } from '../store/app';
 import {
   closeTab,
@@ -22,10 +22,12 @@ interface ShellProps {
   title: string;
   active: boolean;
   dirty: boolean;
+  /** The file was changed by another program. */
+  stale?: boolean;
   icon: ReactNode;
 }
 
-function TabShell({ id, name, title, active, dirty, icon }: ShellProps) {
+function TabShell({ id, name, title, active, dirty, stale, icon }: ShellProps) {
   return (
     <div
       className={`tab ${active ? 'active' : ''}`}
@@ -37,6 +39,7 @@ function TabShell({ id, name, title, active, dirty, icon }: ShellProps) {
     >
       {icon}
       <span className="tab-name">{name}</span>
+      {stale && <TriangleAlert size={13} className="tab-stale" aria-label="Changed on disk" />}
       <button
         className={`tab-close ${dirty ? 'dirty' : ''}`}
         onClick={(e) => {
@@ -60,9 +63,14 @@ function DocTabItem({ tab, active }: { tab: DocTab; active: boolean }) {
     <TabShell
       id={tab.id}
       name={tab.name}
-      title={tab.path ?? tab.name}
+      title={
+        tab.externalChange
+          ? `${tab.path ?? tab.name}\nChanged by another program since it was opened`
+          : (tab.path ?? tab.name)
+      }
       active={active}
       dirty={isDirty(tab)}
+      stale={!!tab.externalChange}
       icon={<DocBadge family={getAnalysis(tab.model).type.family} size={16} />}
     />
   );

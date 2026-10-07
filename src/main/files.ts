@@ -6,24 +6,32 @@ import { randomUUID } from 'node:crypto';
 import {
   OPEN_FILTERS,
   type FileFilter,
+  type FileStamp,
   type OpenDialogOptions,
   type OpenedFile,
   type SaveResult,
 } from '../shared/api';
 import { storageGet } from './store';
+import { stampOf } from './watcher';
 
 const approved = new Set<string>();
-const writes = new Map<string, Promise<void>>();
+const writes = new Map<string, Promise<FileStamp | undefined>>();
 
 export const approve = (p: string): void => {
   approved.add(path.resolve(p));
 };
 
 function assertApproved(p: string): string {
-  const abs = path.resolve(p);
-  if (!approved.has(abs))
+  const abs = approvedPath(p);
+  if (!abs)
     throw new Error(`Access to "${p}" has not been granted. Open the file through the app first.`);
   return abs;
+}
+
+/** The absolute path when the user has granted access to it. */
+export function approvedPath(p: string): string | undefined {
+  const abs = path.resolve(p);
+  return approved.has(abs) ? abs : undefined;
 }
 
 /** Paths remembered by earlier sessions (history / session restore) may be re-opened. */
@@ -35,12 +43,14 @@ export async function approveRememberedPaths(): Promise<void> {
 
 export async function readOpened(p: string): Promise<OpenedFile> {
   const abs = path.resolve(p);
+  const stamp = await stampOf(abs);
   const data = await fs.readFile(abs);
   approve(abs);
   return {
     path: abs,
     name: path.basename(abs),
     data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    stamp,
   };
 }
 
@@ -63,18 +73,22 @@ export async function readFile(p: string): Promise<Uint8Array> {
   return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 }
 
+export async function statFile(p: string): Promise<FileStamp | undefined> {
+  return stampOf(assertApproved(p));
+}
+
 /** Atomic write: temp file in the same directory, then rename over the target. */
 export async function writeFile(
   p: string,
   data: Uint8Array,
   options?: { backup?: boolean },
-): Promise<void> {
+): Promise<FileStamp | undefined> {
   const target = assertApproved(p);
-  const run = (): Promise<void> => writeApprovedFile(target, data, options);
+  const run = (): Promise<FileStamp | undefined> => writeApprovedFile(target, data, options);
   const next = (writes.get(target) ?? Promise.resolve()).then(run, run);
   writes.set(target, next);
   try {
-    await next;
+    return await next;
   } finally {
     if (writes.get(target) === next) writes.delete(target);
   }
@@ -84,7 +98,7 @@ async function writeApprovedFile(
   target: string,
   data: Uint8Array,
   options?: { backup?: boolean },
-): Promise<void> {
+): Promise<FileStamp | undefined> {
   let mode: number | undefined;
   try {
     mode = (await fs.stat(target)).mode;
@@ -99,6 +113,7 @@ async function writeApprovedFile(
   try {
     await fs.writeFile(tmp, data, { mode, flag: 'wx' });
     await fs.rename(tmp, target);
+    return await stampOf(target);
   } catch (e) {
     await fs.rm(tmp, { force: true }).catch(() => undefined);
     const code = (e as NodeJS.ErrnoException).code;
@@ -124,8 +139,8 @@ export async function saveAs(
   const r = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
   if (r.canceled || !r.filePath) return undefined;
   approve(r.filePath);
-  await writeFile(r.filePath, data);
-  return { path: r.filePath, name: path.basename(r.filePath) };
+  const stamp = await writeFile(r.filePath, data);
+  return { path: r.filePath, name: path.basename(r.filePath), stamp };
 }
 
 export async function fileExists(p: string): Promise<boolean> {

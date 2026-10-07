@@ -190,7 +190,8 @@ document.
 
 **Editing** — source editor, inspector, context-menu element operations; add, replace, export, rename
 (relationships and content types are updated) and delete parts; undo/redo across everything;
-atomic saves with an optional `.bak`; a warning before saving malformed XML.
+atomic saves with an optional `.bak`; a warning before saving malformed XML; a warning (with a one-click
+reload) when another program such as PowerPoint modifies a file that is open.
 
 **Comparing** — two files or unsaved changes; part-level status with folder roll-ups and filters;
 split / unified diff; formatting-only differences detected; image comparison; Markdown report.
