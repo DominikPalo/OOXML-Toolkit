@@ -4,8 +4,9 @@
 
 A cross-platform desktop app (macOS, Windows, Linux) for **viewing, editing and comparing OOXML
 packages** — `.docx`, `.xlsx`, `.pptx` and their macro/template variants (`.docm`, `.xlsm`, `.pptm`,
-`.dotx`, `.xltx`, `.potx`, …). Basic support for ODF packages (`.odt`, `.ods`, `.odp`) and plain ZIP
-files comes for free, because they are ZIP + XML as well.
+`.dotx`, `.xltx`, `.potx`, …). OpenDocument packages (`.odt`, `.ods`, `.odp`, …) and plain ZIP files
+open as well, because they are ZIP + XML too — ODF files get their document properties, a manifest
+view and an ODF-specific package check.
 
 ![Animated tour: browse, edit, review, search, compare and check a document](docs/demo.gif)
 
@@ -163,6 +164,25 @@ metafiles, which are drawn as vector graphics (CAD and Visio exports, pasted Off
 | --- | --- |
 | ![Go to part](docs/screenshots/quick-open.png) | ![Bookmarks](docs/screenshots/bookmarks.png) |
 
+### 10. Open OpenDocument files too
+
+`.odt`, `.ods`, `.odp` and the other ODF formats open like any other package. ODF has no relationships
+or content types, so the app follows its own conventions instead:
+
+- The **overview** reads `meta.xml` — title, author, keywords, dates, editing time, slide / page /
+  word counts and any custom properties.
+- **Manifest** (next to *Parts* in the explorer) lists every file in `META-INF/manifest.xml` with its
+  media type, flags entries that point at a missing file and collects files the manifest does not list.
+- Renaming or adding a part updates the manifest; `mimetype` is always saved first and uncompressed,
+  as the format requires.
+- The **package check** verifies the `mimetype` entry and compares the manifest with the actual parts.
+
+| | |
+| --- | --- |
+| ![Overview of an OpenDocument presentation](docs/screenshots/odf-overview.png) | ![Manifest view](docs/screenshots/odf-manifest.png) |
+
+There are no slide, text or cell previews for ODF documents yet — you see (and edit) the XML.
+
 ## Features at a glance
 
 **Viewing** — highlighted, foldable source; relationship tables (incoming and outgoing); image (PNG, SVG,
@@ -260,6 +280,8 @@ Key ideas:
 - EMF / WMF previews are converted to SVG with [emf-converter](https://github.com/ChristopherVR/emf-converter):
   the picture is sized to the drawn content rather than to the header frame, and text uses the fonts
   installed on your machine. Very large metafiles (hundreds of thousands of records) take a moment.
+- OpenDocument files have no slide, document or worksheet preview yet (the XML, properties, manifest
+  and package check work). Encrypted ODF entries are listed but cannot be read.
 - ZIP64 archives can be read but are not written (archives must stay below 4 GiB / 65 535 entries).
 
 ## License

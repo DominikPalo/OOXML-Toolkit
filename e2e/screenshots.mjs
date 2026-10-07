@@ -19,7 +19,8 @@ for (const f of readdirSync(out)) rmSync(join(out, f)); // drop stale images
 const samplesDir = join(process.platform === 'win32' ? tmpdir() : '/tmp', 'ooxml-samples');
 mkdirSync(samplesDir, { recursive: true });
 for (const f of readdirSync(join(root, 'samples')))
-  if (/\.(docx|xlsx|pptx)$/.test(f)) copyFileSync(join(root, 'samples', f), join(samplesDir, f));
+  if (/\.(docx|xlsx|pptx|odp)$/.test(f))
+    copyFileSync(join(root, 'samples', f), join(samplesDir, f));
 const sample = (n) => join(samplesDir, n);
 const profile = join(mkdtempSync(join(tmpdir(), 'ooxml-shots-')), 'profile');
 
@@ -34,13 +35,14 @@ const app = await electron.launch({
       'sample.xlsx',
       'sample.pptx',
       'sample-v2.pptx',
+      'sample.odp',
     ].map(sample),
   ],
   env: { ...process.env, OOXML_E2E: '1' },
 });
 const page = await app.firstWindow();
 await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1360, 860));
-await page.waitForFunction(() => document.querySelectorAll('.tab').length >= 6);
+await page.waitForFunction(() => document.querySelectorAll('.tab').length >= 7);
 
 // ---- helpers ------------------------------------------------------------------------------------
 const command = (id) =>
@@ -168,6 +170,19 @@ await row('slide2.xml').click();
 await settle(300);
 await detailTab('Preview');
 await shot('relations-slide');
+await page.getByRole('button', { name: /^Parts$/ }).click();
+
+// ---- 4b. An OpenDocument package: metadata and the manifest ----------------------------------
+await openTab('sample.odp');
+await explorer();
+await row('sample.odp').click();
+await settle(300);
+await shot('odf-overview');
+await page.getByRole('button', { name: /Manifest/ }).click();
+await settle(200);
+await row('content.xml').click();
+await settle(400);
+await shot('odf-manifest');
 await page.getByRole('button', { name: /^Parts$/ }).click();
 
 // ---- 5. Search: text and XPath ----------------------------------------------------------------
