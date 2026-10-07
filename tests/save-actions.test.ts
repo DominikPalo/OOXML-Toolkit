@@ -33,6 +33,23 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+describe('opening unsupported files', () => {
+  it('explains that an OLE compound file may be password protected', () => {
+    const data = new Uint8Array(512);
+    data.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    expect(openFile({ name: 'secret.docx', data })).toBeUndefined();
+    expect(getState().tabs).toHaveLength(0);
+    expect(getState().toasts).toMatchObject([
+      {
+        kind: 'error',
+        text: expect.stringMatching(
+          /^secret\.docx is not a valid ZIP-based package: This looks like a password-protected/,
+        ),
+      },
+    ]);
+  });
+});
+
 describe('asynchronous saves', () => {
   it('keeps typing during a write dirty and preserves undo/redo', async () => {
     const { id, model, part, original } = editedDocument();

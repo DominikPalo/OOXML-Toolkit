@@ -17,6 +17,8 @@ const SIG_CENTRAL = 0x02014b50;
 const SIG_EOCD = 0x06054b50;
 const SIG_EOCD64 = 0x06064b50;
 const SIG_EOCD64_LOCATOR = 0x07064b50;
+/** Header of an OLE compound file: legacy `.doc`/`.xls`/`.ppt` and password-protected Office files. */
+const OLE_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 
 export const METHOD_STORED = 0;
 export const METHOD_DEFLATE = 8;
@@ -90,6 +92,11 @@ export class ZipArchive {
   }
 
   static open(data: Uint8Array): ZipArchive {
+    if (OLE_SIGNATURE.every((b, i) => data[i] === b)) {
+      throw new ZipError(
+        'This looks like a password-protected or legacy binary Office file (an OLE compound file, not a ZIP), which cannot be opened.',
+      );
+    }
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
     // Locate the end-of-central-directory record (scan backwards, it may be followed by a comment).
     let eocd = -1;

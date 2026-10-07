@@ -367,7 +367,8 @@ restore, comparison defaults, and buttons to clear the history or all bookmarks.
 
 **The file says it is “not a valid ZIP-based package”.**
 Office files that are password-protected or in a legacy binary format (`.doc`, `.xls`, `.ppt`) are not
-ZIP archives. Save an unprotected copy in the current format (`.docx`, `.xlsx`, `.pptx`) first.
+ZIP archives; the message then adds “This looks like a password-protected or legacy binary Office
+file”. Save an unprotected copy in the current format (`.docx`, `.xlsx`, `.pptx`) first.
 
 **macOS says the app is “damaged” or blocks it on first launch.**
 The builds are not notarized (that needs a paid Apple Developer ID), so macOS quarantines the download.

@@ -32,6 +32,15 @@ describe('ZipArchive', () => {
     expect(() => ZipArchive.open(strToU8('definitely not a zip file at all'))).toThrow(/Not a ZIP/);
   });
 
+  it('recognises OLE compound files (password-protected or legacy Office files)', () => {
+    const ole = new Uint8Array(512);
+    ole.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    expect(() => ZipArchive.open(ole)).toThrow(/password-protected or legacy binary Office file/);
+    // Only the full 8-byte signature counts.
+    ole[7] = 0;
+    expect(() => ZipArchive.open(ole)).toThrow(/Not a ZIP/);
+  });
+
   it('detects corruption through the CRC check', () => {
     const data = writeZip([{ kind: 'data', name: 'x.txt', data: strToU8('abcdef'), method: 0 }]);
     const zip = ZipArchive.open(data);
