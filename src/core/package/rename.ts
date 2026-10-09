@@ -18,8 +18,9 @@ export function renamePackagePart(model: PackageModel, from: string, to: string)
   const problem = partNameProblem(to);
   if (problem) throw new Error(problem);
   if (!model.has(from)) throw new Error(`Part "${from}" does not exist.`);
-  const taken = (name: string): boolean =>
-    model.names().some((n) => n.toLowerCase() === name.toLowerCase());
+  // OPC part names compare case-insensitively.
+  const samePart = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase();
+  const taken = (name: string): boolean => model.names().some((n) => samePart(n, name));
   if (taken(to)) throw new Error(`Part "${to}" already exists.`);
 
   const analysis = analyzePackage(model);
@@ -29,11 +30,11 @@ export function renamePackagePart(model: PackageModel, from: string, to: string)
   if (moveRels && taken(newRels)) throw new Error(`Relationship part "${newRels}" already exists.`);
 
   // Plan text splices before mutating, using the original resolved targets.
+  const isRenamed = (r: { resolved?: string }): boolean =>
+    r.resolved !== undefined && samePart(r.resolved, from);
   const updates = new Map<string, string>();
   for (const [source, relationships] of analysis.relationships) {
-    const relevant = relationships.filter(
-      (r) => r.resolved && (source === from || r.resolved === from),
-    );
+    const relevant = relationships.filter((r) => r.resolved && (source === from || isRenamed(r)));
     if (!relevant.length) continue;
     const relsPart = relevant[0].relsPart;
     const { doc } = model.getXml(relsPart);
@@ -42,7 +43,7 @@ export function renamePackagePart(model: PackageModel, from: string, to: string)
     for (const r of relevant) {
       const el = doc.root.elements.find((e) => getAttr(e, 'Id') === r.id);
       if (!el) continue;
-      const target = r.resolved === from ? to : r.resolved!;
+      const target = isRenamed(r) ? to : r.resolved!;
       const owner = source === from ? to : source;
       const hash = r.target.indexOf('#');
       const fragment = hash === -1 ? '' : r.target.slice(hash);

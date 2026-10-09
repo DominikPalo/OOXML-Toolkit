@@ -67,6 +67,34 @@ describe('renaming package parts', () => {
     expect(analysis.relationships.get('')?.[0].target).toBe('other/renamed.xml#main');
   });
 
+  it('treats differently cased targets as references to the renamed part', () => {
+    const model = PackageModel.open(buildDocx());
+    const own = 'word/_rels/document.xml.rels';
+    model.setText(
+      own,
+      model
+        .getText(own)
+        .text.replace(
+          '</Relationships>',
+          '<Relationship Id="self" Type="urn:self" Target="Document.xml#anchor"/></Relationships>',
+        ),
+    );
+    model.setText(
+      '_rels/.rels',
+      model.getText('_rels/.rels').text.replace('word/document.xml"', 'Word/Document.XML"'),
+    );
+    renamePackagePart(model, 'word/document.xml', 'other/renamed.xml');
+    const analysis = analyzePackage(model);
+    expect(
+      analysis.relationships.get('other/renamed.xml')?.find((r) => r.id === 'self'),
+    ).toMatchObject({
+      target: 'renamed.xml#anchor',
+      resolved: 'other/renamed.xml',
+    });
+    expect(analysis.relationships.get('')?.[0].target).toBe('other/renamed.xml');
+    expect(analysis.mainPart).toBe('other/renamed.xml');
+  });
+
   it('rejects a conflicting companion relationship file before changing anything', () => {
     const model = PackageModel.open(buildDocx());
     model.addPart('word/_rels/renamed.xml.rels', '<Relationships/>');
