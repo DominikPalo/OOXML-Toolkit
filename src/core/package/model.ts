@@ -92,6 +92,7 @@ export class PackageModel implements PartSource {
   private textCache = new Map<string, DecodedText>();
   private xmlCache = new Map<string, { text: string; result: ParsedXml }>();
   private undoStack: UndoEntry[] = [];
+  private transactionDepth = 0;
   private redoStack: UndoEntry[] = [];
   private listeners = new Set<() => void>();
 
@@ -367,6 +368,7 @@ export class PackageModel implements PartSource {
     const now = Date.now();
     const top = this.undoStack[this.undoStack.length - 1];
     if (
+      this.transactionDepth === 0 &&
       opts.coalesceKey &&
       top &&
       top.coalesceKey === opts.coalesceKey &&
@@ -385,6 +387,7 @@ export class PackageModel implements PartSource {
   }
 
   private trimHistory(): void {
+    if (this.transactionDepth) return;
     const weight = (e: UndoEntry): number =>
       e.changes.reduce((n, c) => n + snapshotWeight(c.before) + snapshotWeight(c.after), 0);
     let total = this.undoStack.reduce((n, e) => n + weight(e), 0);
@@ -400,15 +403,21 @@ export class PackageModel implements PartSource {
   transaction(label: string, fn: () => void): void {
     const startUndo = this.undoStack.length;
     const savedRedo = this.redoStack;
-    fn();
-    const entries = this.undoStack.splice(startUndo);
-    if (!entries.length) {
-      this.redoStack = savedRedo;
-      return;
+    this.transactionDepth++;
+    try {
+      fn();
+    } finally {
+      this.transactionDepth--;
+      const entries = this.undoStack.splice(startUndo);
+      if (!entries.length) {
+        this.redoStack = savedRedo;
+      } else {
+        const merged: PartChange[] = [];
+        for (const e of entries) for (const c of e.changes) merged.push(c);
+        this.undoStack.push({ label, changes: merged, time: Date.now() });
+      }
+      this.trimHistory();
     }
-    const merged: PartChange[] = [];
-    for (const e of entries) for (const c of e.changes) merged.push(c);
-    this.undoStack.push({ label, changes: merged, time: Date.now() });
   }
 
   undo(): UndoEntry | undefined {
