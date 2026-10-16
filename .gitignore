@@ -11,3 +11,7 @@ e2e/screenshots/
 
 # Real-world files for local manual testing (never committed)
 samples/local/
+
+# Tauri prototype
+src-tauri/target/
+src-tauri/gen/

@@ -119,7 +119,7 @@ export function OverviewView({ tab }: { tab: DocTab }) {
           </p>
         </div>
         <span className="spacer" />
-        {tab.path && host.kind === 'electron' && (
+        {tab.path && host.kind !== 'web' && (
           <button className="btn" onClick={() => void host.revealInFolder(tab.path!)}>
             <FolderSearch size={14} /> Reveal
           </button>

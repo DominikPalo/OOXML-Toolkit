@@ -8,6 +8,7 @@ for the feature list and architecture overview.
 Node.js 24 (`.nvmrc`; `engine-strict` is on, so older versions fail at `npm install`).
 
 - `npm run dev` (Electron, hot reload) · `npm run dev:web` (same UI in a browser at :5199)
+- Tauri prototype (needs Rust): `npm run dev:tauri` · `npm run dist:tauri` — see `src-tauri/README.md`.
 - `npm test` (vitest, `tests/`) · `npm run typecheck` · `npm run build`
 - `npm run e2e` drives the built Electron app with Playwright (needs `npm run samples` once).
   Against a packaged build: `OOXML_E2E_EXECUTABLE=<path to app binary> node e2e/smoke.mjs`.
