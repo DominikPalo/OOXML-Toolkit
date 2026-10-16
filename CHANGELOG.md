@@ -5,6 +5,10 @@ All notable changes to this project are documented here. Each release is publish
 
 ## Unreleased
 
+- **Fixed:** in a comparison, toggling **Ignore formatting-only differences** or **Ignore attribute order**
+  (or using Refresh / Swap sides) no longer jumps to another part — the part being viewed and the
+  expanded folders are kept.
+
 ## 0.4.0 — 2026-10-07
 
 - **Added:** a **Save** button in the tab bar, next to Compare. It runs the same command as `⌘S` / `Ctrl+S`

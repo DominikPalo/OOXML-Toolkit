@@ -1152,18 +1152,31 @@ export async function runCompare(id: string): Promise<void> {
     const result = await comparePackages(tab.a.source, tab.b.source, tab.options, (done, total) =>
       updateCompare(id, { progress: done / Math.max(total, 1) }),
     );
-    const first = result.parts.find((p) => p.status !== 'unchanged');
-    const expanded: Record<string, true> = { root: true };
-    for (const p of result.parts) {
-      if (p.status === 'unchanged') continue;
-      const segs = p.name.split('/');
+    const expandTo = (expanded: Record<string, true>, name: string): void => {
+      const segs = name.split('/');
       segs.pop();
       let acc = '';
       for (const s of segs) {
         acc += s + '/';
         expanded[folderRowId(acc)] = true;
       }
+    };
+    // A re-run (options, refresh, swap) keeps the part the user is looking at and their tree.
+    const current = getState().tabs.find(
+      (t): t is CompareTab => t.id === id && t.kind === 'compare',
+    );
+    if (current?.result) {
+      const selected = result.parts.some((p) => p.name === current.selected)
+        ? current.selected
+        : undefined;
+      const expanded: Record<string, true> = { ...current.expanded, root: true };
+      if (selected) expandTo(expanded, selected);
+      updateCompare(id, { status: 'done', result, progress: 1, selected, expanded });
+      return;
     }
+    const first = result.parts.find((p) => p.status !== 'unchanged');
+    const expanded: Record<string, true> = { root: true };
+    for (const p of result.parts) if (p.status !== 'unchanged') expandTo(expanded, p.name);
     updateCompare(id, { status: 'done', result, progress: 1, selected: first?.name, expanded });
   } catch (e) {
     updateCompare(id, { status: 'error', error: e instanceof Error ? e.message : String(e) });
