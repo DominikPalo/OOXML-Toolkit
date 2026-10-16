@@ -5,9 +5,17 @@ All notable changes to this project are documented here. Each release is publish
 
 ## Unreleased
 
+## 0.4.1 — 2026-10-16
+
 - **Fixed:** in a comparison, toggling **Ignore formatting-only differences** or **Ignore attribute order**
   (or using Refresh / Swap sides) no longer jumps to another part — the part being viewed and the
   expanded folders are kept.
+- **Fixed:** renaming a part keeps its relationships. Its `.rels` file moves with it, targets pointing to
+  and from it are rewritten (case-insensitively, keeping fragments, absolute targets and external
+  links), and a rename that would overwrite an existing `.rels` file is refused. The rename stays one
+  undo step.
+- **Changed:** opening a password-protected or legacy binary Office file (`.doc`, `.xls`, `.ppt`) explains
+  what the file probably is instead of reporting a generic “Not a ZIP archive”.
 
 ## 0.4.0 — 2026-10-07
 
