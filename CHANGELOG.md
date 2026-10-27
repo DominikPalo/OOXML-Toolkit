@@ -5,6 +5,10 @@ All notable changes to this project are documented here. Each release is publish
 
 ## Unreleased
 
+- Project: added a code of conduct, contributing guidelines, a security policy, issue and pull request
+  templates, Dependabot, dependency review, OpenSSF Scorecard and stale-issue workflows. CI also checks
+  formatting (`npm run format:check`).
+
 ## 0.4.1 — 2026-10-16
 
 - **Fixed:** in a comparison, toggling **Ignore formatting-only differences** or **Ignore attribute order**

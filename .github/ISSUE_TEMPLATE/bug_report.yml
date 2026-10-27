@@ -1,0 +1,82 @@
+name: Bug Report
+description: Report a bug to help us improve.
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+
+        **Please do not attach documents that contain confidential or personal data.** Strip them down
+        first, or describe the parts and the XML involved.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Please provide a description of the problem
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: Please describe what you expected would happen
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Please provide all steps to reproduce the behavior
+      placeholder: |
+        1. Open a .docx created in Word 365...
+        1. Select the part...
+        1. Click...
+        1. See error...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Affected Version
+      description: The app version (shown in **About OOXML Toolkit**) or the release tag
+      placeholder: v0.4.1
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Browser build (npm run dev:web)
+    validations:
+      required: true
+  - type: input
+    id: file-type
+    attributes:
+      label: File Type
+      description: The kind of document involved, and the program that created it if known
+      placeholder: .xlsx saved by Excel 365
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Screenshots, a small sample file, log output, anything else that may help
+    validations:
+      required: false
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: By submitting this issue, you agree to the following
+      options:
+        - label: I have read the [contributing guidelines](https://github.com/DominikPalo/OOXML-Toolkit/blob/main/CONTRIBUTING.md)
+          required: true
+        - label: I have verified this does not duplicate an existing issue
+          required: true

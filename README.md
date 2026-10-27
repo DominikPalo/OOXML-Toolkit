@@ -1,6 +1,10 @@
 # OOXML Toolkit
 
 [![CI](https://github.com/DominikPalo/OOXML-Toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/DominikPalo/OOXML-Toolkit/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/DominikPalo/OOXML-Toolkit?display_name=tag)](CHANGELOG.md)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/DominikPalo/OOXML-Toolkit/badge)](https://scorecard.dev/viewer/?uri=github.com/DominikPalo/OOXML-Toolkit)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-fbab2c.svg)](CODE_OF_CONDUCT.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A cross-platform desktop app (macOS, Windows, Linux) for **viewing, editing and comparing OOXML and
 OpenDocument packages**: `.docx`, `.xlsx`, `.pptx` and their macro/template variants (`.docm`,
@@ -283,6 +287,13 @@ Key ideas:
 - OpenDocument files have no slide, document or worksheet preview yet (the XML, properties, manifest
   and package check work). Encrypted ODF entries are listed but cannot be read.
 - ZIP64 archives can be read but are not written (archives must stay below 4 GiB / 65 535 entries).
+
+## Contributing
+
+Contributions are welcome — bug reports, ideas, documentation and code. Please read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and note that the project follows a
+[Code of Conduct](CODE_OF_CONDUCT.md). Security issues should be reported privately as described in
+[SECURITY.md](SECURITY.md).
 
 ## License
 
