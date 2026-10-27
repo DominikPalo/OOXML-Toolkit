@@ -1,0 +1,34 @@
+name: Stale
+
+# Labels issues and pull requests without activity for 60 days as stale and closes them 7 days later.
+# Add the `keep` label to exempt one.
+on:
+  schedule:
+    # Weekly, on Saturdays
+    - cron: '30 1 * * 6'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          days-before-stale: 60
+          days-before-close: 7
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: keep,security
+          exempt-pr-labels: keep,security
+          stale-issue-message: >
+            This issue has had no activity for 60 days and is now marked as stale. It will be closed in
+            7 days unless there is new activity or it gets the `keep` label.
+          stale-pr-message: >
+            This pull request has had no activity for 60 days and is now marked as stale. It will be
+            closed in 7 days unless there is new activity or it gets the `keep` label.

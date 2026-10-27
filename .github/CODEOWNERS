@@ -1,0 +1,4 @@
+# Default reviewers for everything in the repository. Unless a later match takes precedence, these
+# owners are requested for review when someone opens a pull request.
+# https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+* @DominikPalo

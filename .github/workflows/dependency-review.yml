@@ -1,0 +1,25 @@
+name: Dependency review
+
+# Flags dependencies with known vulnerabilities or unwanted licenses that a pull request introduces.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          deny-licenses: >-
+            AGPL-1.0, AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0, AGPL-3.0-only, AGPL-3.0-or-later
+          comment-summary-in-pr: on-failure
+          warn-on-openssf-scorecard-level: 3
