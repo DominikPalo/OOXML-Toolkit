@@ -5,6 +5,12 @@ All notable changes to this project are documented here. Each release is publish
 
 ## Unreleased
 
+## 0.4.2 — 2026-10-27
+
+- **Changed:** the app runs on Electron 45 (Chromium 156, Node 24.22), up from Electron 44.
+- **Changed:** EMF / WMF previews use emf-converter 4.24.0 (up from 4.11.3), which renders text
+  placement, gradients and CMYK images more faithfully.
+- Updated the other dependencies (CodeMirror, React, Vite 8, electron-vite 6, electron-builder, …).
 - Project: added a code of conduct, contributing guidelines, a security policy, issue and pull request
   templates, Dependabot, dependency review, OpenSSF Scorecard and stale-issue workflows. CI also checks
   formatting (`npm run format:check`).
